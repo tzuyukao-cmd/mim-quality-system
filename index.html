@@ -2199,19 +2199,35 @@ function dashSetPeriod(p){
   dashRender();
 }
 
+async function dashFetchAll(){
+  await Promise.allSettled([
+    iqcApiGet({action:'getData'}).then(res=>{
+      if(res && res.ok && Array.isArray(res.data)) iqcState.rows = res.data;
+    }).catch(()=>{}),
+    heatApiGet({action:'getData'}).then(res=>{
+      if(res && res.ok && Array.isArray(res.data)) heatState.rows = res.data;
+    }).catch(()=>{}),
+    gaugeApiGet({action:'getData'}).then(res=>{
+      if(res && res.ok && Array.isArray(res.data)) gaugeState.list = res.data;
+    }).catch(()=>{}),
+    sinterApiGet({action:'getData'}).then(res=>{
+      if(res && res.ok && Array.isArray(res.data)) sinterState.rows = res.data;
+    }).catch(()=>{}),
+    injApiGet({action:'getData'}).then(res=>{
+      if(res && res.ok && Array.isArray(res.data)) injState.rows = res.data;
+    }).catch(()=>{}),
+    fqcApiGet({action:'getData'}).then(res=>{
+      if(res && res.ok && Array.isArray(res.data)) fqcState.rows = res.data;
+    }).catch(()=>{}),
+    blastApiGet({action:'getData'}).then(res=>{
+      if(res && res.ok && Array.isArray(res.data)) blastState.rows = res.data;
+    }).catch(()=>{}),
+  ]);
+}
+
 async function dashRefresh(){
   showToast('重新整理儀表板資料中…');
-  try{
-    await Promise.allSettled([
-      iqcInit(true),
-      heatInit(true),
-      gaugeInit(true),
-      typeof sinterInit==='function' ? sinterInit(true) : Promise.resolve(),
-      typeof injInit==='function'    ? injInit(true)    : Promise.resolve(),
-      typeof fqcInit==='function'    ? fqcInit(true)    : Promise.resolve(),
-      typeof blastInit==='function'  ? blastInit(true)  : Promise.resolve(),
-    ]);
-  }catch(e){}
+  await dashFetchAll();
   dashRender();
   showToast('✅ 儀表板資料已更新');
 }
