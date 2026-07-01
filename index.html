@@ -2132,33 +2132,32 @@ function dashRenderLogin(){
     <div class="dash-login-wrap">
       <div class="inst-icon">📊</div>
       <h2 style="margin:0 0 4px;color:var(--main-d);">儀表板</h2>
-      <div class="small" style="margin-bottom:18px;">此頁面僅限管制人員進入,請輸入工號</div>
+      <div class="small" style="margin-bottom:18px;">此頁面僅限授權人員進入，請輸入密碼</div>
       <div id="dashLoginErr" class="small" style="color:var(--bad);display:none;margin-bottom:8px;"></div>
       <div style="text-align:left;">
-        <label>工號</label>
-        <input id="dashWorkId" placeholder="請輸入您的工號" onkeydown="if(event.key==='Enter')dashLogin()">
+        <label>密碼</label>
+        <input id="dashPassword" type="password" placeholder="請輸入密碼" onkeydown="if(event.key==='Enter')dashLogin()">
       </div>
       <div class="actions" style="margin-top:12px;">
-        <button class="btn-primary" style="width:100%;" onclick="dashLogin()">查詢並登入</button>
+        <button class="btn-primary" style="width:100%;" onclick="dashLogin()">進入儀表板</button>
       </div>
     </div>
   `;
 }
 
 function dashLogin(){
-  const id = document.getElementById('dashWorkId').value.trim();
+  const pw = document.getElementById('dashPassword').value;
   const errEl = document.getElementById('dashLoginErr');
   errEl.style.display = 'none';
-  if(!id){ errEl.textContent='請輸入工號'; errEl.style.display='block'; return; }
-  if(!DASH_ALLOWED_IDS.includes(id)){
-    errEl.textContent = '此工號無權限進入儀表板,請聯絡管理員';
+  if(!pw){ errEl.textContent='請輸入密碼'; errEl.style.display='block'; return; }
+  if(pw !== '123456'){
+    errEl.textContent = '密碼錯誤，請重新輸入';
     errEl.style.display = 'block';
     return;
   }
-  const user = INST_USERS.find(u=>u.id===id) || {id, name:'管理人員'};
-  dashState.user = user;
+  dashState.user = { id:'admin', name:'管理人員' };
   dashState.view = 'main';
-  dashRender();
+  dashRefresh();
 }
 
 function dashLogout(){
