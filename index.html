@@ -1046,9 +1046,9 @@ async function gaugeApiPost(action, payload){
   return res.json();
 }
 
-async function gaugeInit(){
+async function gaugeInit(silent=false){
   const root = document.getElementById('gaugeRoot');
-  root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
+  if(!silent) root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
   try{
     const [dataRes, engRes] = await Promise.all([
       gaugeApiGet({action:'getData'}),
@@ -1061,7 +1061,7 @@ async function gaugeInit(){
     root.innerHTML = `<div class="card"><div class="small" style="padding:20px;color:var(--bad);">讀取雲端失敗:${err.message}<br><button class="btn-ghost" style="margin-top:10px;" onclick="gaugeInit()">重試</button></div></div>`;
     return;
   }
-  gaugeRender();
+  if(!silent) gaugeRender();
 }
 
 function gaugeRender(){
@@ -1363,9 +1363,9 @@ function iqcTodayDisplay(){
   return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0');
 }
 
-async function iqcInit(){
+async function iqcInit(silent=false){
   const root = document.getElementById('iqcRoot');
-  root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
+  if(!silent) root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
   try{
     const res = await iqcApiGet({action:'getData'});
     iqcState.rows = (res && res.ok && Array.isArray(res.data)) ? res.data : [];
@@ -1374,7 +1374,7 @@ async function iqcInit(){
     root.innerHTML = `<div class="card"><div class="small" style="padding:20px;color:var(--bad);">讀取雲端失敗:${err.message}<br><button class="btn-ghost" style="margin-top:10px;" onclick="iqcInit()">重試</button></div></div>`;
     return;
   }
-  iqcRender();
+  if(!silent) iqcRender();
 }
 
 function iqcDot(v){ return v ? '<span class="iqc-dot"></span>' : '<span class="iqc-dash">—</span>'; }
@@ -1663,9 +1663,9 @@ function heatNowTime(){
   return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
 }
 
-async function heatInit(){
+async function heatInit(silent=false){
   const root = document.getElementById('heatRoot');
-  root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
+  if(!silent) root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
   try{
     const res = await heatApiGet({action:'getData'});
     heatState.rows = (res && res.ok && Array.isArray(res.data)) ? res.data : [];
@@ -1674,7 +1674,7 @@ async function heatInit(){
     root.innerHTML = `<div class="card"><div class="small" style="padding:20px;color:var(--bad);">讀取雲端失敗:${err.message}<br><button class="btn-ghost" style="margin-top:10px;" onclick="heatInit()">重試</button></div></div>`;
     return;
   }
-  heatRender();
+  if(!silent) heatRender();
 }
 
 function heatFmtHardness(v){
@@ -1885,9 +1885,9 @@ function sinterTodayDisplay(){
   return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0');
 }
 
-async function sinterInit(){
+async function sinterInit(silent=false){
   const root = document.getElementById('sinterRoot');
-  root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
+  if(!silent) root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
   try{
     const res = await sinterApiGet({action:'getData'});
     sinterState.rows = (res && res.ok && Array.isArray(res.data)) ? res.data : [];
@@ -1896,7 +1896,7 @@ async function sinterInit(){
     root.innerHTML = `<div class="card"><div class="small" style="padding:20px;color:var(--bad);">讀取雲端失敗:${err.message}<br><button class="btn-ghost" style="margin-top:10px;" onclick="sinterInit()">重試</button></div></div>`;
     return;
   }
-  sinterRender();
+  if(!silent) sinterRender();
 }
 
 function sinterRender(){
@@ -2203,13 +2203,13 @@ async function dashRefresh(){
   showToast('重新整理儀表板資料中…');
   try{
     await Promise.allSettled([
-      iqcInit(),
-      heatInit(),
-      gaugeInit(),
-      typeof sinterInit==='function' ? sinterInit() : Promise.resolve(),
-      typeof injInit==='function'    ? injInit()    : Promise.resolve(),
-      typeof fqcInit==='function'    ? fqcInit()    : Promise.resolve(),
-      typeof blastInit==='function'  ? blastInit()  : Promise.resolve(),
+      iqcInit(true),
+      heatInit(true),
+      gaugeInit(true),
+      typeof sinterInit==='function' ? sinterInit(true) : Promise.resolve(),
+      typeof injInit==='function'    ? injInit(true)    : Promise.resolve(),
+      typeof fqcInit==='function'    ? fqcInit(true)    : Promise.resolve(),
+      typeof blastInit==='function'  ? blastInit(true)  : Promise.resolve(),
     ]);
   }catch(e){}
   dashRender();
@@ -2333,9 +2333,9 @@ function injTodayDisplay(){
   return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0');
 }
 
-async function injInit(){
+async function injInit(silent=false){
   const root = document.getElementById('injRoot');
-  root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
+  if(!silent) root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
   try{
     const res = await injApiGet({action:'getData'});
     injState.rows = (res && res.ok && Array.isArray(res.data)) ? res.data : [];
@@ -2344,7 +2344,7 @@ async function injInit(){
     root.innerHTML = `<div class="card"><div class="small" style="padding:20px;color:var(--bad);">讀取雲端失敗:${err.message}<br><button class="btn-ghost" style="margin-top:10px;" onclick="injInit()">重試</button></div></div>`;
     return;
   }
-  injRender();
+  if(!silent) injRender();
 }
 
 function injRender(){
@@ -2544,18 +2544,18 @@ function fqcTodayDisplay(){
   return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0');
 }
 
-async function fqcInit(){
+async function fqcInit(silent=false){
   const root = document.getElementById('fqcRoot');
-  root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
+  if(!silent) root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
   try{
     const res = await fqcApiGet({action:'getData'});
     fqcState.rows = (res && res.ok && Array.isArray(res.data)) ? res.data : [];
     fqcState.loaded = true;
   }catch(err){
-    root.innerHTML = `<div class="card"><div class="small" style="padding:20px;color:var(--bad);">讀取雲端失敗:${err.message}<br><button class="btn-ghost" style="margin-top:10px;" onclick="fqcInit()">重試</button></div></div>`;
+    if(!silent) root.innerHTML = `<div class="card"><div class="small" style="padding:20px;color:var(--bad);">讀取雲端失敗:${err.message}<br><button class="btn-ghost" style="margin-top:10px;" onclick="fqcInit()">重試</button></div></div>`;
     return;
   }
-  fqcRender();
+  if(!silent) fqcRender();
 }
 
 function fqcRender(){
@@ -2794,9 +2794,9 @@ function blastToInputDate(val){
   return blastTodayISO();
 }
 
-async function blastInit(){
+async function blastInit(silent=false){
   const root = document.getElementById('blastRoot');
-  root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
+  if(!silent) root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
   try{
     const res = await blastApiGet({action:'getData'});
     blastState.rows = (res && res.ok && Array.isArray(res.data)) ? res.data : [];
@@ -2805,7 +2805,7 @@ async function blastInit(){
     root.innerHTML = `<div class="card"><div class="small" style="padding:20px;color:var(--bad);">讀取雲端失敗:${err.message}<br><button class="btn-ghost" style="margin-top:10px;" onclick="blastInit()">重試</button></div></div>`;
     return;
   }
-  blastRender();
+  if(!silent) blastRender();
 }
 
 function blastRender(){
