@@ -308,6 +308,7 @@ function switchTab(key){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('tabbtn-'+key).classList.add('active');
   document.getElementById('panel-'+key).classList.add('active');
+  if(key==='dashboard') dashRefresh();
 }
 
 /* 儀器保養專屬頁籤 */
@@ -2200,7 +2201,17 @@ function dashSetPeriod(p){
 
 async function dashRefresh(){
   showToast('重新整理儀表板資料中…');
-  try{ await Promise.allSettled([iqcInit(), heatInit(), gaugeInit()]); }catch(e){}
+  try{
+    await Promise.allSettled([
+      iqcInit(),
+      heatInit(),
+      gaugeInit(),
+      typeof sinterInit==='function' ? sinterInit() : Promise.resolve(),
+      typeof injInit==='function'    ? injInit()    : Promise.resolve(),
+      typeof fqcInit==='function'    ? fqcInit()    : Promise.resolve(),
+      typeof blastInit==='function'  ? blastInit()  : Promise.resolve(),
+    ]);
+  }catch(e){}
   dashRender();
   showToast('✅ 儀表板資料已更新');
 }
