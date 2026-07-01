@@ -2105,6 +2105,22 @@ const DASH_MODULES = [
   { key:'fqc', label:'出貨檢驗(FQC)', icon:'✅', source:()=>(typeof fqcState!=='undefined'?fqcState.rows:[])||[], dateField:'date', resultField:'result', failValues:['拒收','不合格'] },
 ];
 
+function dashDebug(){
+  const info = [
+    `IQC rows: ${(iqcState.rows||[]).length}  範例日期: ${(iqcState.rows||[])[0]?.date||'—'}`,
+    `熱處理 rows: ${(heatState.rows||[]).length}  範例日期: ${(heatState.rows||[])[0]?.date||'—'}`,
+    `燒結 rows: ${(sinterState.rows||[]).length}  範例日期: ${(sinterState.rows||[])[0]?.date||'—'}`,
+    `射出 rows: ${(injState.rows||[]).length}  範例日期: ${(injState.rows||[])[0]?.date||'—'}`,
+    `FQC rows: ${(fqcState.rows||[]).length}  範例日期: ${(fqcState.rows||[])[0]?.date||'—'}  範例result: ${(fqcState.rows||[])[0]?.result||'—'}`,
+    `噴砂 rows: ${(blastState.rows||[]).length}  範例日期: ${(blastState.rows||[])[0]?.date||'—'}`,
+    `檢具 list: ${(gaugeState.list||[]).length}`,
+    `---`,
+    `目前篩選期間: ${dashState.period}`,
+    `期間範圍: ${dashGetPeriodRange(dashState.period).map(d=>d.toLocaleDateString()).join(' ~ ')}`,
+  ].join('\n');
+  alert(info);
+}
+
 function dashRender(){
   const root = document.getElementById('dashRoot');
   if(!root) return;
@@ -2153,13 +2169,19 @@ function dashLogout(){
 
 function dashParseDate(str){
   if(!str) return null;
-  const s = String(str).trim().replace(/-/g,'/');
-  const parts = s.split('/');
-  if(parts.length!==3) return null;
-  const y = parseInt(parts[0],10), m = parseInt(parts[1],10), d = parseInt(parts[2],10);
-  if(!y||!m||!d) return null;
-  const dt = new Date(y, m-1, d);
-  return isNaN(dt.getTime()) ? null : dt;
+  const s = String(str).trim();
+  if(!s) return null;
+  // 嘗試直接用 Date 解析（處理 "Wed Jul 01 2026 15:00:00 GMT+0800..." 等格式）
+  const d = new Date(s);
+  if(!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  // fallback：手動處理 yyyy/MM/dd 或 yyyy-MM-dd
+  const clean = s.split('T')[0].split(' ')[0].replace(/-/g,'/');
+  const parts = clean.split('/');
+  if(parts.length===3){
+    const y=parseInt(parts[0],10), m=parseInt(parts[1],10), dd=parseInt(parts[2],10);
+    if(y>1900 && m>=1 && m<=12 && dd>=1 && dd<=31) return new Date(y, m-1, dd);
+  }
+  return null;
 }
 
 function dashGetPeriodRange(period){
@@ -2291,7 +2313,10 @@ function dashRenderMain(){
     <div class="card">
       <div class="toprow">
         <h2 style="margin:0;">📊 製程品質儀表板</h2>
-        <button class="btn-ghost" onclick="dashRefresh()">🔄 重新整理資料</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-ghost" onclick="dashDebug()">🐞 診斷資料</button>
+          <button class="btn-ghost" onclick="dashRefresh()">🔄 重新整理資料</button>
+        </div>
       </div>
       <div class="dash-locked-note">⚠ 此頁面僅限授權人員查看,目前資料來源:IQC / 熱處理 / 檢具校正 / 燒結 / 射出成型 / 出貨檢驗FQC(雲端即時資料);噴砂清洗(本機瀏覽器資料,僅供本機統計參考)。</div>
 
