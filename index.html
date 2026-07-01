@@ -654,13 +654,19 @@ function toYMD(val){
   }
   let s = String(val).trim();
   if(!s) return '';
-  s = s.split('T')[0].split(' ')[0]; // 去掉時間部分
+  // 嘗試用 Date 解析任意格式(包含 "Wed Jun 25 2025..." 等)
+  const parsed = new Date(s);
+  if(!isNaN(parsed.getTime())){
+    return parsed.getFullYear()+'/'+String(parsed.getMonth()+1).padStart(2,'0')+'/'+String(parsed.getDate()).padStart(2,'0');
+  }
+  // fallback：手動處理 ISO / 斜線格式
+  s = s.split('T')[0].split(' ')[0];
   s = s.replace(/\./g,'/').replace(/-/g,'/');
   const m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
   if(m){
     return m[1]+'/'+m[2].padStart(2,'0')+'/'+m[3].padStart(2,'0');
   }
-  return s; // 無法辨識的格式則原樣回傳
+  return s;
 }
 
 function showToast(msg){
@@ -1334,7 +1340,7 @@ let iqcState = {
   filterVerdict: 'all',
   check: {app:false, jig:false, adh:false, tap:false},
   verdict: '',
-  draft: {wo:'',bake:'',vendor:'',sample:'',inspector:'',approver:'',desc:'',remark:''},
+  draft: {wo:'',bake:'',vendor:'',partName:'',sample:'',inspector:'',approver:'',desc:'',remark:''},
 };
 
 async function iqcApiGet(params){
@@ -1390,6 +1396,7 @@ function iqcRender(){
             ${IQC_VENDOR_OPTIONS.map(v=>`<option value="${v}" ${(editing?rec.vendor:iqcState.draft.vendor)===v?'selected':''}>${v}</option>`).join('')}
           </select>
         </div>
+        <div><label>品名</label><input id="iqc_partName" value="${editing?(rec.partName||''):iqcState.draft.partName}" oninput="iqcDraftUpdate('partName',this.value)" placeholder="如: MIM零件名稱"></div>
         <div><label>抽樣數/批量<span class="vi">Số lượng mẫu / Lô</span></label><input id="iqc_sample" value="${editing?(rec.sample||''):iqcState.draft.sample}" oninput="iqcDraftUpdate('sample',this.value)" placeholder="如: 2931/200"></div>
         <div><label>檢驗員<span class="vi">Người kiểm tra</span></label><input id="iqc_inspector" value="${editing?(rec.inspector||''):iqcState.draft.inspector}" oninput="iqcDraftUpdate('inspector',this.value)" placeholder="如: 陳柔羽"></div>
         <div><label>核准<span class="vi">Người phê duyệt</span></label><input id="iqc_approver" value="${editing?(rec.approver||''):iqcState.draft.approver}" oninput="iqcDraftUpdate('approver',this.value)" placeholder="如: 高子淯"></div>
@@ -1422,7 +1429,7 @@ function iqcRender(){
     if(iqcState.filterVerdict!=='all' && r.verdict!==iqcState.filterVerdict) return false;
     if(iqcState.filterText){
       const f = iqcState.filterText.toLowerCase();
-      const hay = [r.wo,r.vendor,r.remark,r.desc].join(' ').toLowerCase();
+      const hay = [r.wo,r.vendor,r.partName,r.remark,r.desc].join(' ').toLowerCase();
       if(!hay.includes(f)) return false;
     }
     return true;
@@ -1433,6 +1440,7 @@ function iqcRender(){
     return `
       <tr class="${r.verdict==='NG'?'ng-row':''}">
         <td>${toYMD(r.date)}</td>
+        <td>${r.partName||'—'}</td>
         <td style="text-align:left;">${r.wo||''}</td>
         <td>${r.bake||'—'}</td>
         <td>${r.vendor||'—'}</td>
@@ -1473,9 +1481,11 @@ function iqcRender(){
         <table>
           <thead><tr>
             <th>日期<span class="vi">Ngày</span></th>
+            <th>品名</th>
             <th>工單號<span class="vi">Số lệnh</span></th>
             <th>出爐日期<span class="vi">Ngày ra lò</span></th>
             <th>廠商<span class="vi">NCC</span></th>
+            <th>品名</th>
             <th>抽樣數/批量<span class="vi">Mẫu/Lô</span></th>
             <th>外觀<span class="vi">Ngoại quan</span></th>
             <th>檢具<span class="vi">Dụng cụ</span></th>
@@ -1536,6 +1546,7 @@ function iqcReadForm(){
     wo: document.getElementById('iqc_wo').value.trim(),
     bake: document.getElementById('iqc_bake').value.trim(),
     vendor: document.getElementById('iqc_vendor').value.trim(),
+    partName: document.getElementById('iqc_partName').value.trim(),
     sample: document.getElementById('iqc_sample').value.trim(),
     inspector: document.getElementById('iqc_inspector').value.trim(),
     approver: document.getElementById('iqc_approver').value.trim(),
@@ -1565,7 +1576,7 @@ async function iqcSubmit(){
     iqcState.rows.push(savedRec);
     iqcState.check = {app:false, jig:false, adh:false, tap:false};
     iqcState.verdict = '';
-    iqcState.draft = {wo:'',bake:'',vendor:'',sample:'',inspector:'',approver:'',desc:'',remark:''};
+    iqcState.draft = {wo:'',bake:'',vendor:'',partName:'',sample:'',inspector:'',approver:'',desc:'',remark:''};
   }
   await iqcSaveToCloud();
   if(savedRec.verdict==='NG'){
