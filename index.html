@@ -700,8 +700,9 @@ function instAddRecent(user){
 }
 
 async function instApiGet(params){
-  const qs = Object.entries(params).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
-  const res = await fetch(`${INST_API_URL}?${qs}`);
+  const p = Object.assign({}, params, {_t: Date.now()});
+  const qs = Object.entries(p).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+  const res = await fetch(`${INST_API_URL}?${qs}`, {cache:'no-store'});
   return res.json();
 }
 async function instApiPost(action, payload){
@@ -1033,8 +1034,9 @@ let gaugeState = {
 };
 
 async function gaugeApiGet(params){
-  const qs = Object.entries(params).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
-  const res = await fetch(`${GAUGE_API_URL}?${qs}`);
+  const p = Object.assign({}, params, {_t: Date.now()});
+  const qs = Object.entries(p).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+  const res = await fetch(`${GAUGE_API_URL}?${qs}`, {cache:'no-store'});
   return res.json();
 }
 async function gaugeApiPost(action, payload){
@@ -1345,8 +1347,9 @@ let iqcState = {
 };
 
 async function iqcApiGet(params){
-  const qs = Object.entries(params).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
-  const res = await fetch(`${IQC_API_URL}?${qs}`);
+  const p = Object.assign({}, params, {_t: Date.now()});
+  const qs = Object.entries(p).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+  const res = await fetch(`${IQC_API_URL}?${qs}`, {cache:'no-store'});
   return res.json();
 }
 async function iqcApiPost(action, payload){
@@ -1640,8 +1643,9 @@ let heatState = {
 };
 
 async function heatApiGet(params){
-  const qs = Object.entries(params).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
-  const res = await fetch(`${HEAT_API_URL}?${qs}`);
+  const p = Object.assign({}, params, {_t: Date.now()});
+  const qs = Object.entries(p).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+  const res = await fetch(`${HEAT_API_URL}?${qs}`, {cache:'no-store'});
   return res.json();
 }
 async function heatApiPost(action, payload){
@@ -1866,8 +1870,9 @@ let sinterState = {
 };
 
 async function sinterApiGet(params){
-  const qs = Object.entries(params).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
-  const res = await fetch(`${SINTER_API_URL}?${qs}`);
+  const p = Object.assign({}, params, {_t: Date.now()});
+  const qs = Object.entries(p).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+  const res = await fetch(`${SINTER_API_URL}?${qs}`, {cache:'no-store'});
   return res.json();
 }
 async function sinterApiPost(action, payload){
@@ -2354,8 +2359,9 @@ let injState = {
 };
 
 async function injApiGet(params){
-  const qs = Object.entries(params).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
-  const res = await fetch(`${INJ_API_URL}?${qs}`);
+  const p = Object.assign({}, params, {_t: Date.now()});
+  const qs = Object.entries(p).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+  const res = await fetch(`${INJ_API_URL}?${qs}`, {cache:'no-store'});
   return res.json();
 }
 async function injApiPost(action, payload){
@@ -2565,8 +2571,9 @@ let fqcState = {
 };
 
 async function fqcApiGet(params){
-  const qs = Object.entries(params).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
-  const res = await fetch(`${FQC_API_URL}?${qs}`);
+  const p = Object.assign({}, params, {_t: Date.now()});
+  const qs = Object.entries(p).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+  const res = await fetch(`${FQC_API_URL}?${qs}`, {cache:'no-store'});
   return res.json();
 }
 async function fqcApiPost(action, payload){
@@ -2801,8 +2808,9 @@ let blastState = {
 };
 
 async function blastApiGet(params){
-  const qs = Object.entries(params).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
-  const res = await fetch(`${BLAST_API_URL}?${qs}`);
+  const p = Object.assign({}, params, {_t: Date.now()});
+  const qs = Object.entries(p).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+  const res = await fetch(`${BLAST_API_URL}?${qs}`, {cache:'no-store'});
   return res.json();
 }
 async function blastApiPost(action, payload){
