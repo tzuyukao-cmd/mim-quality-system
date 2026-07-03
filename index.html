@@ -115,11 +115,13 @@
 .iqc-verdict-btn{flex:1;padding:10px;text-align:center;cursor:pointer;font-weight:700;font-size:13px;background:#fff;color:var(--muted);border:none;font-family:inherit;}
 .iqc-verdict-btn.sel-ok{background:var(--ok);color:#fff;}
 .iqc-verdict-btn.sel-ng{background:var(--bad);color:#fff;}
+.iqc-verdict-btn.sel-sp{background:var(--warn);color:#fff;}
 .iqc-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);}
 .iqc-dash{color:#C9CFD3;}
 .iqc-verdict-pill{padding:3px 10px;border-radius:14px;font-weight:700;font-size:11.5px;}
 .iqc-verdict-pill.ok{background:#e6f6ec;color:var(--ok);}
 .iqc-verdict-pill.ng{background:var(--bad);color:#fff;}
+.iqc-verdict-pill.sp{background:#fff3cd;color:#856404;}
 tr.ng-row{background:#fdecec;}
 .vi{display:block;font-size:10.5px;font-weight:400;color:var(--muted);font-style:italic;}
 th .vi{color:#cbd5e1;}
@@ -1338,7 +1340,7 @@ gaugeInit();
 
 /* ===================== 進料檢驗(IQC)邏輯,串接雲端 Apps Script ===================== */
 const IQC_API_URL = 'https://script.google.com/macros/s/AKfycbxCTM_oMNcMPpejo_0GBrngI5PEChYr1A0EEV5sSygT1RSLX3p9CeJzJdeOnJUS7Cq4kg/exec';
-const IQC_VENDOR_OPTIONS = ['博皓','銘翰','特異','煌瑋','登旺'];
+const IQC_VENDOR_OPTIONS = ['博皓','銘翰','特異','煌瑋','登旺','光國','三廠'];
 
 let iqcState = {
   rows: [],
@@ -1426,6 +1428,7 @@ function iqcRender(){
       <div class="iqc-verdict-row">
         <button type="button" class="iqc-verdict-btn ${ (editing?rec.verdict:iqcState.verdict)==='OK'?'sel-ok':''}" onclick="iqcSetVerdict('OK')">OK</button>
         <button type="button" class="iqc-verdict-btn ${ (editing?rec.verdict:iqcState.verdict)==='NG'?'sel-ng':''}" onclick="iqcSetVerdict('NG')">NG</button>
+        <button type="button" class="iqc-verdict-btn ${ (editing?rec.verdict:iqcState.verdict)==='特採'?'sel-sp':''}" onclick="iqcSetVerdict('特採')">特採</button>
       </div>
       <div class="grid">
         <div class="full"><label>備註<span class="vi">Ghi chú</span></label><input id="iqc_remark" value="${editing?(rec.remark||''):iqcState.draft.remark}" oninput="iqcDraftUpdate('remark',this.value)" placeholder="其他備註"></div>
@@ -1461,7 +1464,7 @@ function iqcRender(){
         <td>${iqcDot(r.adh)}</td>
         <td>${iqcDot(r.tap)}</td>
         <td style="text-align:left;">${r.desc||'—'}</td>
-        <td><span class="iqc-verdict-pill ${r.verdict==='OK'?'ok':'ng'}">${r.verdict||''}</span></td>
+        <td><span class="iqc-verdict-pill ${r.verdict==='OK'?'ok':r.verdict==='NG'?'ng':'sp'}">${r.verdict||''}</span></td>
         <td>${r.inspector||''}</td>
         <td>${r.approver||''}</td>
         <td>${r.remark||'—'}</td>
@@ -1485,6 +1488,7 @@ function iqcRender(){
           <option value="all" ${iqcState.filterVerdict==='all'?'selected':''}>全部 / Tất cả</option>
           <option value="OK" ${iqcState.filterVerdict==='OK'?'selected':''}>僅看 OK</option>
           <option value="NG" ${iqcState.filterVerdict==='NG'?'selected':''}>僅看 NG</option>
+          <option value="特採" ${iqcState.filterVerdict==='特採'?'selected':''}>僅看特採</option>
         </select>
       </div>
       <div class="gauge-summary">顯示 ${filtered.length} / ${iqcState.rows.length} 筆 <span class="vi" style="display:inline;">Hiển thị ${filtered.length} / ${iqcState.rows.length} dòng</span></div>
@@ -1534,13 +1538,12 @@ function iqcSetVerdict(v){
     iqcState.verdict = v;
   }
   document.querySelectorAll('.iqc-verdict-row .iqc-verdict-btn').forEach(b=>{
-    b.classList.remove('sel-ok','sel-ng');
+    b.classList.remove('sel-ok','sel-ng','sel-sp');
   });
   const btns = document.querySelectorAll('.iqc-verdict-row .iqc-verdict-btn');
-  if(btns[0] && btns[1]){
-    if(v==='OK') btns[0].classList.add('sel-ok');
-    else btns[1].classList.add('sel-ng');
-  }
+  if(v==='OK' && btns[0]) btns[0].classList.add('sel-ok');
+  else if(v==='NG' && btns[1]) btns[1].classList.add('sel-ng');
+  else if(v==='特採' && btns[2]) btns[2].classList.add('sel-sp');
 }
 function iqcDraftUpdate(key, val){
   iqcState.draft[key] = val;
@@ -2352,8 +2355,77 @@ function dashRenderMain(){
         </table>
       </div>
       <div class="small" style="margin-top:14px;">總計${periodLabel}全製程紀錄 ${totalAll} 筆,其中 NG/不合格 ${totalFail} 筆。</div>
+
+      ${dashRenderVendorReturn(dashState.period)}
     </div>
   `;
+}
+
+function dashRenderVendorReturn(period){
+  const [from, to] = dashGetPeriodRange(period);
+  const periodLabel = period==='week' ? '本週' : '本月';
+  const rows = (iqcState.rows||[]).filter(r=>{
+    const d = dashParseDate(r.date);
+    return d && d >= from && d <= to;
+  });
+
+  if(rows.length===0) return `
+    <div class="dash-section-title">🏭 ${periodLabel} IQC 廠商退料狀況</div>
+    <div class="small" style="color:#999;padding:8px 0;">本期間無進料檢驗資料</div>`;
+
+  const vendorMap = {};
+  rows.forEach(r=>{
+    const v = r.vendor || '未填廠商';
+    if(!vendorMap[v]) vendorMap[v] = {total:0, ok:0, ng:0};
+    vendorMap[v].total++;
+    if(r.verdict==='NG' || r.verdict==='ng') vendorMap[v].ng++;
+    else vendorMap[v].ok++;
+  });
+
+  const vendorRows = Object.entries(vendorMap)
+    .sort((a,b)=>b[1].ng - a[1].ng)
+    .map(([vendor, stat])=>{
+      const rate = stat.total>0 ? Math.round(stat.ok/stat.total*100) : 0;
+      const barColor = rate>=95 ? 'var(--ok)' : rate>=80 ? 'var(--warn)' : 'var(--bad)';
+      const ngBadge = stat.ng>0
+        ? `<span style="background:var(--bad);color:#fff;border-radius:12px;padding:1px 8px;font-size:12px;">${stat.ng} 筆退料</span>`
+        : `<span style="background:var(--ok);color:#fff;border-radius:12px;padding:1px 8px;font-size:12px;">無退料</span>`;
+      return `<tr>
+        <td><b>${vendor}</b></td>
+        <td>${stat.total}</td>
+        <td style="color:var(--ok);">${stat.ok}</td>
+        <td>${ngBadge}</td>
+        <td><span class="dash-rate-bar"><span class="dash-rate-fill" style="width:${rate}%;background:${barColor};"></span></span>${rate}%</td>
+      </tr>`;
+    }).join('');
+
+  const ngDetails = rows.filter(r=>r.verdict==='NG'||r.verdict==='ng');
+  const ngDetailRows = ngDetails.length===0
+    ? '<tr><td colspan="6" style="text-align:center;color:#999;">本期間無退料紀錄</td></tr>'
+    : ngDetails.map(r=>`<tr>
+        <td>${toYMD(r.date)}</td>
+        <td>${r.vendor||'—'}</td>
+        <td>${r.wo||'—'}</td>
+        <td>${r.partName||'—'}</td>
+        <td>${r.sample||'—'}</td>
+        <td style="text-align:left;color:var(--bad);">${r.desc||'—'}</td>
+      </tr>`).join('');
+
+  return `
+    <div class="dash-section-title">🏭 ${periodLabel} IQC 廠商退料狀況</div>
+    <div class="table-wrap">
+      <table class="dash-module-table">
+        <thead><tr><th>廠商</th><th>送貨批數</th><th>合格</th><th>退料狀況</th><th>合格率</th></tr></thead>
+        <tbody>${vendorRows}</tbody>
+      </table>
+    </div>
+    <div class="dash-section-title" style="margin-top:16px;">📋 ${periodLabel}退料明細</div>
+    <div class="table-wrap">
+      <table class="dash-module-table">
+        <thead><tr><th>日期</th><th>廠商</th><th>工單號</th><th>品名</th><th>抽樣/批量</th><th>異常描述</th></tr></thead>
+        <tbody>${ngDetailRows}</tbody>
+      </table>
+    </div>`;
 }
 
 dashRender();
