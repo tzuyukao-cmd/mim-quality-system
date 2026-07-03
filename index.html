@@ -2118,7 +2118,7 @@ const DASH_ALLOWED_IDS = ['720107'];
 let dashState = { view:'login', user:null, period:'week' };
 
 const DASH_MODULES = [
-  { key:'iqc', label:'進料檢驗(IQC)', icon:'📥', source:()=>iqcState.rows||[], dateField:'date', resultField:'verdict', failValues:['NG'] },
+  { key:'iqc', label:'進料檢驗(IQC)', icon:'📥', source:()=>iqcState.rows||[], dateField:'date', resultField:'verdict', failValues:['NG','特採'] },
   { key:'heat', label:'熱處理', icon:'🔥', source:()=>heatState.rows||[], dateField:'date', resultField:'verdict', failValues:['特採'] },
   { key:'injection', label:'射出成型', icon:'⚙️', source:()=>(typeof injState!=='undefined'?injState.rows:[])||[], dateField:'date', resultField:'verdict', failValues:['不合格'] },
   { key:'blasting', label:'噴砂清洗', icon:'⚙️', source:()=>(typeof blastState!=='undefined'?blastState.rows:[])||[], dateField:'date', resultField:'result', failValues:['NG'] },
@@ -2229,10 +2229,11 @@ function dashComputeStats(period){
       return d && d>=start && d<=end;
     });
     const total = inPeriod.length;
-    const fail = inPeriod.filter(r=> mod.failValues.includes(r[mod.resultField])).length;
-    const pass = total - fail;
-    const rate = total ? Math.round(pass/total*100) : null;
-    return { ...mod, total, pass, fail, rate };
+    const fail  = inPeriod.filter(r=> r[mod.resultField]==='NG' || r[mod.resultField]==='不合格' || r[mod.resultField]==='拒收').length;
+    const sp    = inPeriod.filter(r=> r[mod.resultField]==='特採').length;
+    const pass  = total - fail - sp;
+    const rate  = total ? Math.round(pass/total*100) : null;
+    return { ...mod, total, pass, fail, sp, rate };
   });
 }
 
@@ -2313,12 +2314,14 @@ function dashRenderMain(){
     const rate = s.rate===null ? '—' : s.rate+'%';
     const barWidth = s.rate===null ? 0 : s.rate;
     const barColor = s.rate===null ? '#cbd5e1' : (s.rate>=95 ? 'var(--ok)' : s.rate>=80 ? 'var(--warn)' : 'var(--bad)');
+    const spText = s.sp>0 ? `<span style="color:#856404;font-weight:700;">${s.sp}</span>` : `<span style="color:#aaa;">0</span>`;
     return `
       <tr>
         <td>${s.icon} ${s.label}</td>
         <td>${s.total}</td>
-        <td>${s.pass}</td>
-        <td>${s.fail}</td>
+        <td style="color:var(--ok);">${s.pass}</td>
+        <td style="color:${s.fail>0?'var(--bad)':'#aaa'};">${s.fail}</td>
+        <td>${spText}</td>
         <td>
           <span class="dash-rate-bar"><span class="dash-rate-fill" style="width:${barWidth}%;background:${barColor};"></span></span>${rate}
         </td>
@@ -2350,7 +2353,7 @@ function dashRenderMain(){
       <div class="dash-section-title">📋 各製程站${periodLabel}明細</div>
       <div class="table-wrap">
         <table class="dash-module-table">
-          <thead><tr><th>製程站</th><th>總筆數</th><th>合格</th><th>不合格/NG</th><th>合格率</th></tr></thead>
+          <thead><tr><th>製程站</th><th>總筆數</th><th>合格</th><th>NG/不合格</th><th>特採</th><th>合格率</th></tr></thead>
           <tbody>${tableRows}</tbody>
         </table>
       </div>
@@ -2376,30 +2379,37 @@ function dashRenderVendorReturn(period){
   const vendorMap = {};
   rows.forEach(r=>{
     const v = r.vendor || '未填廠商';
-    if(!vendorMap[v]) vendorMap[v] = {total:0, ok:0, ng:0};
+    if(!vendorMap[v]) vendorMap[v] = {total:0, ok:0, ng:0, sp:0};
     vendorMap[v].total++;
     if(r.verdict==='NG' || r.verdict==='ng') vendorMap[v].ng++;
+    else if(r.verdict==='特採') vendorMap[v].sp++;
     else vendorMap[v].ok++;
   });
 
   const vendorRows = Object.entries(vendorMap)
-    .sort((a,b)=>b[1].ng - a[1].ng)
+    .sort((a,b)=>(b[1].ng+b[1].sp) - (a[1].ng+a[1].sp))
     .map(([vendor, stat])=>{
       const rate = stat.total>0 ? Math.round(stat.ok/stat.total*100) : 0;
       const barColor = rate>=95 ? 'var(--ok)' : rate>=80 ? 'var(--warn)' : 'var(--bad)';
       const ngBadge = stat.ng>0
         ? `<span style="background:var(--bad);color:#fff;border-radius:12px;padding:1px 8px;font-size:12px;">${stat.ng} 筆退料</span>`
-        : `<span style="background:var(--ok);color:#fff;border-radius:12px;padding:1px 8px;font-size:12px;">無退料</span>`;
+        : `<span style="color:#aaa;">0</span>`;
+      const spBadge = stat.sp>0
+        ? `<span style="background:#fff3cd;color:#856404;border:1px solid #f0d070;border-radius:12px;padding:1px 8px;font-size:12px;">${stat.sp} 筆特採</span>`
+        : `<span style="color:#aaa;">0</span>`;
       return `<tr>
         <td><b>${vendor}</b></td>
         <td>${stat.total}</td>
         <td style="color:var(--ok);">${stat.ok}</td>
         <td>${ngBadge}</td>
+        <td>${spBadge}</td>
         <td><span class="dash-rate-bar"><span class="dash-rate-fill" style="width:${rate}%;background:${barColor};"></span></span>${rate}%</td>
       </tr>`;
     }).join('');
 
   const ngDetails = rows.filter(r=>r.verdict==='NG'||r.verdict==='ng');
+  const spDetails = rows.filter(r=>r.verdict==='特採');
+
   const ngDetailRows = ngDetails.length===0
     ? '<tr><td colspan="6" style="text-align:center;color:#999;">本期間無退料紀錄</td></tr>'
     : ngDetails.map(r=>`<tr>
@@ -2411,19 +2421,37 @@ function dashRenderVendorReturn(period){
         <td style="text-align:left;color:var(--bad);">${r.desc||'—'}</td>
       </tr>`).join('');
 
+  const spDetailRows = spDetails.length===0
+    ? '<tr><td colspan="6" style="text-align:center;color:#999;">本期間無特採紀錄</td></tr>'
+    : spDetails.map(r=>`<tr>
+        <td>${toYMD(r.date)}</td>
+        <td>${r.vendor||'—'}</td>
+        <td>${r.wo||'—'}</td>
+        <td>${r.partName||'—'}</td>
+        <td>${r.sample||'—'}</td>
+        <td style="text-align:left;color:#856404;">${r.desc||'—'}</td>
+      </tr>`).join('');
+
   return `
-    <div class="dash-section-title">🏭 ${periodLabel} IQC 廠商退料狀況</div>
+    <div class="dash-section-title">🏭 ${periodLabel} IQC 廠商進料狀況</div>
     <div class="table-wrap">
       <table class="dash-module-table">
-        <thead><tr><th>廠商</th><th>送貨批數</th><th>合格</th><th>退料狀況</th><th>合格率</th></tr></thead>
+        <thead><tr><th>廠商</th><th>送貨批數</th><th>合格</th><th>退料(NG)</th><th>特採</th><th>合格率</th></tr></thead>
         <tbody>${vendorRows}</tbody>
       </table>
     </div>
-    <div class="dash-section-title" style="margin-top:16px;">📋 ${periodLabel}退料明細</div>
+    <div class="dash-section-title" style="margin-top:16px;">🔴 ${periodLabel}退料明細(NG)</div>
     <div class="table-wrap">
       <table class="dash-module-table">
         <thead><tr><th>日期</th><th>廠商</th><th>工單號</th><th>品名</th><th>抽樣/批量</th><th>異常描述</th></tr></thead>
         <tbody>${ngDetailRows}</tbody>
+      </table>
+    </div>
+    <div class="dash-section-title" style="margin-top:16px;">🟡 ${periodLabel}特採明細</div>
+    <div class="table-wrap">
+      <table class="dash-module-table">
+        <thead><tr><th>日期</th><th>廠商</th><th>工單號</th><th>品名</th><th>抽樣/批量</th><th>異常描述</th></tr></thead>
+        <tbody>${spDetailRows}</tbody>
       </table>
     </div>`;
 }
