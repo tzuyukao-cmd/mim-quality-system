@@ -1239,6 +1239,7 @@ async function gaugeDelete(idx){
 }
 
 async function gaugeSaveToCloud(){
+  if(!gaugeState.list || gaugeState.list.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return; }
   showToast('儲存中…');
   try{
     const res = await gaugeApiPost('saveData', gaugeState.list);
@@ -1621,6 +1622,7 @@ async function iqcDelete(i){
 }
 
 async function iqcSaveToCloud(){
+  if(!iqcState.rows || iqcState.rows.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return; }
   showToast('儲存中… / Đang lưu…');
   try{
     const res = await iqcApiPost('saveData', iqcState.rows);
@@ -1852,6 +1854,7 @@ async function heatDelete(i){
 }
 
 async function heatSaveToCloud(){
+  if(!heatState.rows || heatState.rows.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return; }
   showToast('儲存中…');
   try{
     const res = await heatApiPost('saveData', heatState.rows);
@@ -2040,6 +2043,7 @@ async function sinterDelete(i){
 }
 
 async function sinterSaveToCloud(){
+  if(!sinterState.rows || sinterState.rows.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return; }
   showToast('儲存中…');
   try{
     const res = await sinterApiPost('saveData', sinterState.rows);
@@ -2554,6 +2558,7 @@ async function injDelete(i){
 }
 
 async function injSaveToCloud(){
+  if(!injState.rows || injState.rows.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return; }
   showToast('儲存中…');
   try{
     const res = await injApiPost('saveData', injState.rows);
@@ -2795,6 +2800,7 @@ async function fqcDelete(i){
 }
 
 async function fqcSaveToCloud(){
+  if(!fqcState.rows || fqcState.rows.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return; }
   showToast('儲存中…');
   try{
     const res = await fqcApiPost('saveData', fqcState.rows);
@@ -3025,6 +3031,7 @@ async function blastDelete(i){
 }
 
 async function blastSaveToCloud(){
+  if(!blastState.rows || blastState.rows.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return; }
   showToast('儲存中…');
   try{
     const res = await blastApiPost('saveData', blastState.rows);
