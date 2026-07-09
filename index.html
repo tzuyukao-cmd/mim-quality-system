@@ -649,6 +649,11 @@ function todayStr(){
 }
 
 // 將任意日期格式(含時間、ISO字串、Date物件)統一轉成「年/月/日」純日期顯示
+// 搜尋比對用：去除頭尾空白、統一全形/半形，避免Excel資料裡藏的隱形字元或全形空白導致篩選比對不到
+function _normSearch(s){
+  return String(s==null?'':s).normalize('NFKC').replace(/\s+/g,'').toLowerCase();
+}
+
 function toYMD(val){
   if(val===null || val===undefined || val==='') return '';
   if(val instanceof Date){
@@ -1126,8 +1131,8 @@ function gaugeRenderList(){
     if(gaugeState.filterStatus && r.status!==gaugeState.filterStatus) return false;
     if(gaugeState.filterCal && r.calType!==gaugeState.filterCal) return false;
     if(gaugeState.filterText){
-      const f = gaugeState.filterText.toLowerCase();
-      const hay = [r.partNo,r.code,r.engineer,r.supplier,r.note].join(' ').toLowerCase();
+      const f = _normSearch(gaugeState.filterText);
+      const hay = _normSearch([r.partNo,r.code,r.engineer,r.supplier,r.note].join(' '));
       if(!hay.includes(f)) return false;
     }
     return true;
@@ -1467,8 +1472,8 @@ function iqcRender(){
   const filtered = iqcState.rows.filter(r=>{
     if(iqcState.filterVerdict!=='all' && r.verdict!==iqcState.filterVerdict) return false;
     if(iqcState.filterText){
-      const f = iqcState.filterText.toLowerCase();
-      const hay = [r.wo,r.vendor,r.partName,r.remark,r.desc].join(' ').toLowerCase();
+      const f = _normSearch(iqcState.filterText);
+      const hay = _normSearch([r.wo,r.vendor,r.partName,r.remark,r.desc].join(' '));
       if(!hay.includes(f)) return false;
     }
     return true;
@@ -1779,8 +1784,8 @@ function heatRender(){
   const filtered = heatState.rows.filter(r=>{
     if(heatState.filterVerdict!=='all' && r.verdict!==heatState.filterVerdict) return false;
     if(heatState.filterText){
-      const f = heatState.filterText.toLowerCase();
-      const hay = [r.partNo,r.wo,r.remark].join(' ').toLowerCase();
+      const f = _normSearch(heatState.filterText);
+      const hay = _normSearch([r.partNo,r.wo,r.remark].join(' '));
       if(!hay.includes(f)) return false;
     }
     return true;
@@ -2005,8 +2010,8 @@ function sinterRender(){
   const filtered = sinterState.rows.filter(r=>{
     if(sinterState.filterVerdict!=='all' && r.verdict!==sinterState.filterVerdict) return false;
     if(sinterState.filterText){
-      const f = sinterState.filterText.toLowerCase();
-      const hay = [r.wo,r.model,r.furnace,r.remark].join(' ').toLowerCase();
+      const f = _normSearch(sinterState.filterText);
+      const hay = _normSearch([r.wo,r.model,r.furnace,r.remark].join(' '));
       if(!hay.includes(f)) return false;
     }
     return true;
@@ -2619,8 +2624,8 @@ function injRender(){
   const filtered = injState.rows.filter(r=>{
     if(injState.filterVerdict!=='all' && r.verdict!==injState.filterVerdict) return false;
     if(injState.filterText){
-      const f = injState.filterText.toLowerCase();
-      const hay = [r.machine,r.partName,r.model].join(' ').toLowerCase();
+      const f = _normSearch(injState.filterText);
+      const hay = _normSearch([r.machine,r.partName,r.model].join(' '));
       if(!hay.includes(f)) return false;
     }
     return true;
@@ -2851,8 +2856,8 @@ function fqcRender(){
   const filtered = fqcState.rows.filter(r=>{
     if(fqcState.filterResult!=='all' && r.result!==fqcState.filterResult) return false;
     if(fqcState.filterText){
-      const f = fqcState.filterText.toLowerCase();
-      const hay = [r.lot,r.wo,r.partNo,r.note].join(' ').toLowerCase();
+      const f = _normSearch(fqcState.filterText);
+      const hay = _normSearch([r.lot,r.wo,r.partNo,r.note].join(' '));
       if(!hay.includes(f)) return false;
     }
     return true;
@@ -3113,8 +3118,8 @@ function blastRender(){
   const filtered = blastState.rows.filter(r=>{
     if(blastState.filterResult!=='all' && r.result!==blastState.filterResult) return false;
     if(blastState.filterText){
-      const f = blastState.filterText.toLowerCase();
-      const hay = [r.wo,r.partNo,r.partName,r.note].join(' ').toLowerCase();
+      const f = _normSearch(blastState.filterText);
+      const hay = _normSearch([r.wo,r.partNo,r.partName,r.note].join(' '));
       if(!hay.includes(f)) return false;
     }
     return true;
