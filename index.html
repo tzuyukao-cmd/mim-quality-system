@@ -821,12 +821,13 @@ function instRenderList(filter){
     <div class="card">
       <h2 style="margin:0 0 4px;">📋 設備保養紀錄卡系統</h2>
       <div class="sub" style="margin-bottom:12px;">請選擇要填寫的設備保養紀錄單(資料儲存於雲端 Google Drive)</div>
-      <input id="inst_search" class="inst-search" placeholder="🔍 搜尋設備名稱、財產編號或分類..." oninput="instSearch(this.value)">
+      <input id="inst_search" class="inst-search" placeholder="🔍 搜尋設備名稱、財產編號或分類..." oninput="instSearch(this.value,event)" oncompositionend="instSearch(this.value)">
       ${body}
     </div>
   `;
 }
-function instSearch(val){
+function instSearch(val, evt){
+  if(evt && evt.isComposing) return; // 輸入法組字中，先不重新渲染，避免打斷組字造成重複字
   const active = document.activeElement;
   const selStart = active && typeof active.selectionStart === 'number' ? active.selectionStart : null;
   const selEnd = active && typeof active.selectionEnd === 'number' ? active.selectionEnd : null;
@@ -1162,7 +1163,7 @@ function gaugeRenderList(){
         <button class="btn-ghost" onclick="gaugeInit()">🔄 重新讀取雲端</button>
       </div>
       <div class="gauge-filter-row">
-        <input id="gauge_filterText" placeholder="🔍 搜尋料號/檢具編號/工程師/供應商/備註..." value="${gaugeState.filterText}" oninput="gaugeSetFilter('filterText',this.value)">
+        <input id="gauge_filterText" placeholder="🔍 搜尋料號/檢具編號/工程師/供應商/備註..." value="${gaugeState.filterText}" oninput="gaugeSetFilter('filterText',this.value,event)" oncompositionend="gaugeSetFilter('filterText',this.value)">
         <select onchange="gaugeSetFilter('filterStatus',this.value)">
           <option value="">全部狀態</option>
           ${STATUS_OPTIONS.map(s=>`<option value="${s}" ${gaugeState.filterStatus===s?'selected':''}>${s}</option>`).join('')}
@@ -1198,8 +1199,9 @@ function gaugeSwitchView(v){
   gaugeRender();
 }
 
-function gaugeSetFilter(key, val){
+function gaugeSetFilter(key, val, evt){
   gaugeState[key] = val;
+  if(evt && evt.isComposing) return; // 輸入法組字中，先不重新渲染，避免打斷組字造成重複字
   const active = document.activeElement;
   const activeId = active && active.id;
   const selStart = active && typeof active.selectionStart === 'number' ? active.selectionStart : null;
@@ -1506,7 +1508,7 @@ function iqcRender(){
         <button class="btn-ghost" onclick="iqcInit()">🔄 重新讀取雲端 / Tải lại từ Cloud</button>
       </div>
       <div class="gauge-filter-row">
-        <input id="iqc_filterText" placeholder="🔍 搜尋工單號／廠商／備註... / Tìm số lệnh／NCC／ghi chú" value="${iqcState.filterText}" oninput="iqcSetFilter('filterText',this.value)">
+        <input id="iqc_filterText" placeholder="🔍 搜尋工單號／廠商／備註... / Tìm số lệnh／NCC／ghi chú" value="${iqcState.filterText}" oninput="iqcSetFilter('filterText',this.value,event)" oncompositionend="iqcSetFilter('filterText',this.value)">
         <select onchange="iqcSetFilter('filterVerdict',this.value)">
           <option value="all" ${iqcState.filterVerdict==='all'?'selected':''}>全部 / Tất cả</option>
           <option value="OK" ${iqcState.filterVerdict==='OK'?'selected':''}>僅看 OK</option>
@@ -1572,8 +1574,9 @@ function iqcDraftUpdate(key, val){
   iqcState.draft[key] = val;
 }
 
-function iqcSetFilter(key, val){
+function iqcSetFilter(key, val, evt){
   iqcState[key] = val;
+  if(evt && evt.isComposing) return; // 輸入法組字中，先不重新渲染，避免打斷組字造成重複字
   // ★ 修正：整份 innerHTML 重新渲染會把輸入框整個銷毀重建，導致每打一個字就失焦。
   //   這裡在重新渲染前記住目前聚焦的元素 id 與游標位置，渲染後再還原回去。
   const active = document.activeElement;
@@ -1818,7 +1821,7 @@ function heatRender(){
         <button class="btn-ghost" onclick="heatInit()">🔄 重新讀取雲端</button>
       </div>
       <div class="gauge-filter-row">
-        <input id="heat_filterText" placeholder="🔍 搜尋料號／工單號／備註..." value="${heatState.filterText}" oninput="heatSetFilter('filterText',this.value)">
+        <input id="heat_filterText" placeholder="🔍 搜尋料號／工單號／備註..." value="${heatState.filterText}" oninput="heatSetFilter('filterText',this.value,event)" oncompositionend="heatSetFilter('filterText',this.value)">
         <select onchange="heatSetFilter('filterVerdict',this.value)">
           <option value="all" ${heatState.filterVerdict==='all'?'selected':''}>全部</option>
           <option value="合格" ${heatState.filterVerdict==='合格'?'selected':''}>僅看合格</option>
@@ -1836,8 +1839,9 @@ function heatRender(){
   `;
 }
 
-function heatSetFilter(key, val){
+function heatSetFilter(key, val, evt){
   heatState[key] = val;
+  if(evt && evt.isComposing) return; // 輸入法組字中，先不重新渲染，避免打斷組字造成重複字
   const active = document.activeElement;
   const activeId = active && active.id;
   const selStart = active && typeof active.selectionStart === 'number' ? active.selectionStart : null;
@@ -1988,6 +1992,7 @@ function sinterRender(){
         <div><label>判定</label>
           <select id="sinter_verdict">${SINTER_VERDICT_OPTIONS.map(o=>`<option value="${o}" ${rec.verdict===o?'selected':''}>${o}</option>`).join('')}</select>
         </div>
+        <div class="full"><label>備註</label><textarea id="sinter_remark" placeholder="備註">${rec.remark||''}</textarea></div>
       </div>
       <div class="actions">
         <button class="btn-primary" onclick="sinterSubmit()">${editing?'💾 儲存修改':'➕ 新增至清單'}</button>
@@ -2001,7 +2006,7 @@ function sinterRender(){
     if(sinterState.filterVerdict!=='all' && r.verdict!==sinterState.filterVerdict) return false;
     if(sinterState.filterText){
       const f = sinterState.filterText.toLowerCase();
-      const hay = [r.wo,r.model,r.furnace].join(' ').toLowerCase();
+      const hay = [r.wo,r.model,r.furnace,r.remark].join(' ').toLowerCase();
       if(!hay.includes(f)) return false;
     }
     return true;
@@ -2009,6 +2014,7 @@ function sinterRender(){
 
   const rows = filtered.map(r=>{
     const i = sinterState.rows.indexOf(r);
+    const remarkShort = (r.remark||'').length>40 ? (r.remark||'').slice(0,40)+'…' : (r.remark||'');
     return `
       <tr class="${r.verdict==='不合格'?'ng-row':''}">
         <td>${toYMD(r.date)}</td>
@@ -2017,6 +2023,7 @@ function sinterRender(){
         <td>${r.wo||''}</td>
         <td>${r.model||''}</td>
         <td><span class="iqc-verdict-pill ${r.verdict==='合格'?'ok':'ng'}">${r.verdict||''}</span></td>
+        <td title="${(r.remark||'').replace(/"/g,'&quot;')}">${remarkShort}</td>
         <td style="white-space:nowrap;">
           <button class="gauge-edit-btn" onclick="sinterEdit(${i})">✏ 編輯</button>
           <button class="gauge-del-btn" onclick="sinterDelete(${i})">🗑 刪除</button>
@@ -2032,7 +2039,7 @@ function sinterRender(){
         <button class="btn-ghost" onclick="sinterInit()">🔄 重新讀取雲端</button>
       </div>
       <div class="gauge-filter-row">
-        <input id="sinter_filterText" placeholder="🔍 搜尋工單號／模號／爐號..." value="${sinterState.filterText}" oninput="sinterSetFilter('filterText',this.value)">
+        <input id="sinter_filterText" placeholder="🔍 搜尋工單號／模號／爐號..." value="${sinterState.filterText}" oninput="sinterSetFilter('filterText',this.value,event)" oncompositionend="sinterSetFilter('filterText',this.value)">
         <select onchange="sinterSetFilter('filterVerdict',this.value)">
           <option value="all" ${sinterState.filterVerdict==='all'?'selected':''}>全部</option>
           <option value="合格" ${sinterState.filterVerdict==='合格'?'selected':''}>僅看合格</option>
@@ -2042,16 +2049,17 @@ function sinterRender(){
       <div class="gauge-summary">顯示 ${filtered.length} / ${sinterState.rows.length} 筆</div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>日期</th><th>爐號</th><th>溫度(℃)</th><th>工單號</th><th>模號</th><th>判定</th><th>操作</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:#999;padding:16px;">尚無資料</td></tr>'}</tbody>
+          <thead><tr><th>日期</th><th>爐號</th><th>溫度(℃)</th><th>工單號</th><th>模號</th><th>判定</th><th>備註</th><th>操作</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:#999;padding:16px;">尚無資料</td></tr>'}</tbody>
         </table>
       </div>
     </div>
   `;
 }
 
-function sinterSetFilter(key, val){
+function sinterSetFilter(key, val, evt){
   sinterState[key] = val;
+  if(evt && evt.isComposing) return; // 輸入法組字中，先不重新渲染，避免打斷組字造成重複字
   const active = document.activeElement;
   const activeId = active && active.id;
   const selStart = active && typeof active.selectionStart === 'number' ? active.selectionStart : null;
@@ -2076,6 +2084,7 @@ function sinterReadForm(){
     wo: document.getElementById('sinter_wo').value.trim(),
     model: document.getElementById('sinter_model').value.trim(),
     verdict: document.getElementById('sinter_verdict').value,
+    remark: document.getElementById('sinter_remark').value.trim(),
   };
 }
 
@@ -2140,6 +2149,7 @@ function sinterImportFile(evt){
         '工單號':'wo','wo':'wo',
         '模號':'model','model':'model',
         '判定':'verdict','verdict':'verdict',
+        '備註':'remark','remark':'remark',
       };
 
       let imported = 0;
@@ -2649,7 +2659,7 @@ function injRender(){
         <button class="btn-ghost" onclick="injInit()">🔄 重新讀取雲端</button>
       </div>
       <div class="gauge-filter-row">
-        <input id="inj_filterText" placeholder="🔍 搜尋機台號／品名／模號..." value="${injState.filterText}" oninput="injSetFilter('filterText',this.value)">
+        <input id="inj_filterText" placeholder="🔍 搜尋機台號／品名／模號..." value="${injState.filterText}" oninput="injSetFilter('filterText',this.value,event)" oncompositionend="injSetFilter('filterText',this.value)">
         <select onchange="injSetFilter('filterVerdict',this.value)">
           <option value="all" ${injState.filterVerdict==='all'?'selected':''}>全部</option>
           <option value="合格" ${injState.filterVerdict==='合格'?'selected':''}>僅看合格</option>
@@ -2668,8 +2678,9 @@ function injRender(){
   `;
 }
 
-function injSetFilter(key, val){
+function injSetFilter(key, val, evt){
   injState[key] = val;
+  if(evt && evt.isComposing) return; // 輸入法組字中，先不重新渲染，避免打斷組字造成重複字
   const active = document.activeElement;
   const activeId = active && active.id;
   const selStart = active && typeof active.selectionStart === 'number' ? active.selectionStart : null;
@@ -2881,7 +2892,7 @@ function fqcRender(){
         </div>
       </div>
       <div class="gauge-filter-row">
-        <input id="fqc_filterText" placeholder="🔍 搜尋批號／工單／料號／備註..." value="${fqcState.filterText}" oninput="fqcSetFilter('filterText',this.value)">
+        <input id="fqc_filterText" placeholder="🔍 搜尋批號／工單／料號／備註..." value="${fqcState.filterText}" oninput="fqcSetFilter('filterText',this.value,event)" oncompositionend="fqcSetFilter('filterText',this.value)">
         <select onchange="fqcSetFilter('filterResult',this.value)">
           <option value="all" ${fqcState.filterResult==='all'?'selected':''}>全部</option>
           <option value="允收" ${fqcState.filterResult==='允收'?'selected':''}>僅看允收</option>
@@ -2900,8 +2911,9 @@ function fqcRender(){
   `;
 }
 
-function fqcSetFilter(key, val){
+function fqcSetFilter(key, val, evt){
   fqcState[key] = val;
+  if(evt && evt.isComposing) return; // 輸入法組字中，先不重新渲染，避免打斷組字造成重複字
   const active = document.activeElement;
   const activeId = active && active.id;
   const selStart = active && typeof active.selectionStart === 'number' ? active.selectionStart : null;
@@ -3137,7 +3149,7 @@ function blastRender(){
         <button class="btn-ghost" onclick="blastInit()">🔄 重新讀取雲端</button>
       </div>
       <div class="gauge-filter-row">
-        <input id="blast_filterText" placeholder="🔍 搜尋工單號／料號／品名／備註..." value="${blastState.filterText}" oninput="blastSetFilter('filterText',this.value)">
+        <input id="blast_filterText" placeholder="🔍 搜尋工單號／料號／品名／備註..." value="${blastState.filterText}" oninput="blastSetFilter('filterText',this.value,event)" oncompositionend="blastSetFilter('filterText',this.value)">
         <select onchange="blastSetFilter('filterResult',this.value)">
           <option value="all" ${blastState.filterResult==='all'?'selected':''}>全部</option>
           <option value="OK" ${blastState.filterResult==='OK'?'selected':''}>僅看OK</option>
@@ -3155,8 +3167,9 @@ function blastRender(){
   `;
 }
 
-function blastSetFilter(key, val){
+function blastSetFilter(key, val, evt){
   blastState[key] = val;
+  if(evt && evt.isComposing) return; // 輸入法組字中，先不重新渲染，避免打斷組字造成重複字
   const active = document.activeElement;
   const activeId = active && active.id;
   const selStart = active && typeof active.selectionStart === 'number' ? active.selectionStart : null;
