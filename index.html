@@ -656,6 +656,13 @@ function _normSearch(s){
 
 // 把純文字裡的網址(http/https開頭)轉成可點擊的超連結，畫面上只顯示精簡文字（不印出落落長的完整網址），
 // 實際跳轉還是用完整網址，只是視覺上比較乾淨
+// 通用 HTML 逸出：把使用者輸入資料塞進表格/表單時一律先過這個，
+// 避免資料裡剛好含有雙引號、角括號等字元時打斷HTML結構(進而讓後面的輸入框、事件綁定全部失效)
+function escHtml(s){
+  return String(s==null?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 function linkifyText(s){
   const text = String(s==null?'':s);
   const esc = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -936,8 +943,8 @@ function instRenderDetail(){
               <label><input type="radio" name="stat_${idx}" value="NG" ${rec.status==='NG'?'checked':''} onchange="instSetField(${idx},'status','NG')">NG</label>
             </div>
           </td>
-          <td><input class="ci-input2" style="width:100%;border:1px solid var(--line);border-radius:4px;padding:4px;font-size:12px;" value="${rec.person||''}" oninput="instSetField(${idx},'person',this.value)"></td>
-          <td><input class="ci-input2" style="width:100%;border:1px solid var(--line);border-radius:4px;padding:4px;font-size:12px;" value="${rec.confirm||''}" oninput="instSetField(${idx},'confirm',this.value)" placeholder="確認"></td>
+          <td><input class="ci-input2" style="width:100%;border:1px solid var(--line);border-radius:4px;padding:4px;font-size:12px;" value="${escHtml(rec.person||'')}" oninput="instSetField(${idx},'person',this.value)"></td>
+          <td><input class="ci-input2" style="width:100%;border:1px solid var(--line);border-radius:4px;padding:4px;font-size:12px;" value="${escHtml(rec.confirm||'')}" oninput="instSetField(${idx},'confirm',this.value)" placeholder="確認"></td>
         </tr>`;
     }).join('');
   }
@@ -1134,22 +1141,22 @@ function gaugeRenderList(){
       <h2 style="margin:0 0 4px;">🔧 檢具校正明細</h2>
       <div class="sub" style="margin-bottom:12px;">${editing?'編輯第 '+(gaugeState.editIndex+1)+' 筆紀錄':'新增檢具校正紀錄'}</div>
       <div class="gauge-form-grid">
-        <div><label>料號</label><input id="g_partNo" value="${rec.partNo||''}" placeholder="請輸入料號"></div>
-        <div><label>檢具編號 *</label><input id="g_code" value="${rec.code||''}" placeholder="如: 5174F07224"></div>
-        <div><label>存放位置</label><input id="g_location" value="${rec.location||''}" placeholder="如: 精測室 A1"></div>
+        <div><label>料號</label><input id="g_partNo" value="${escHtml(rec.partNo||'')}" placeholder="請輸入料號"></div>
+        <div><label>檢具編號 *</label><input id="g_code" value="${escHtml(rec.code||'')}" placeholder="如: 5174F07224"></div>
+        <div><label>存放位置</label><input id="g_location" value="${escHtml(rec.location||'')}" placeholder="如: 精測室 A1"></div>
         <div><label>異動狀態</label>
           <select id="g_status">${STATUS_OPTIONS.map(s=>`<option value="${s}" ${rec.status===s?'selected':''}>${s}</option>`).join('')}</select>
         </div>
-        <div><label>經手人</label><input id="g_handler" value="${rec.handler||''}" placeholder="姓名或工號"></div>
+        <div><label>經手人</label><input id="g_handler" value="${escHtml(rec.handler||'')}" placeholder="姓名或工號"></div>
         <div><label>負責工程師</label>
           <select id="g_engineer"><option value="">— 請選擇 —</option>${engineerOptions}</select>
         </div>
-        <div><label>供應商</label><input id="g_supplier" value="${rec.supplier||''}" placeholder="供應商名稱"></div>
+        <div><label>供應商</label><input id="g_supplier" value="${escHtml(rec.supplier||'')}" placeholder="供應商名稱"></div>
         <div><label>校驗類別</label>
           <select id="g_calType">${CALTYPE_OPTIONS.map(c=>`<option value="${c}" ${rec.calType===c?'selected':''}>${c}</option>`).join('')}</select>
         </div>
-        <div><label>下次校驗日 *</label><input id="g_calDate" value="${rec.calDate||''}" placeholder="如: 2026/01/23"></div>
-        <div class="full"><label>備註說明</label><textarea id="g_note" placeholder="請輸入備註說明">${rec.note||''}</textarea></div>
+        <div><label>下次校驗日 *</label><input id="g_calDate" value="${escHtml(rec.calDate||'')}" placeholder="如: 2026/01/23"></div>
+        <div class="full"><label>備註說明</label><textarea id="g_note" placeholder="請輸入備註說明">${escHtml(rec.note||'')}</textarea></div>
       </div>
       <div class="actions">
         <button class="btn-primary" onclick="gaugeSubmit()">${editing?'💾 儲存修改':'➕ 新增至清單'}</button>
@@ -1172,16 +1179,16 @@ function gaugeRenderList(){
     const realIdx = gaugeState.list.indexOf(r);
     return `
       <tr>
-        <td>${r.partNo||''}</td>
+        <td>${escHtml(r.partNo||'')}</td>
         <td><b>${r.code||''}</b></td>
-        <td>${r.location||''}</td>
+        <td>${escHtml(r.location||'')}</td>
         <td><span class="status-pill s-${r.status||''}">${r.status||''}</span></td>
-        <td>${r.handler||''}</td>
-        <td>${r.engineer||''}</td>
-        <td>${r.supplier||''}</td>
+        <td>${escHtml(r.handler||'')}</td>
+        <td>${escHtml(r.engineer||'')}</td>
+        <td>${escHtml(r.supplier||'')}</td>
         <td><span class="cal-pill">${r.calType||''}</span></td>
         <td>${toYMD(r.calDate)}</td>
-        <td>${r.note||''}</td>
+        <td>${escHtml(r.note||'')}</td>
         <td style="white-space:nowrap;">
           <button class="gauge-edit-btn" onclick="gaugeEdit(${realIdx})">✏ 編輯</button>
           <button class="gauge-del-btn" onclick="gaugeDelete(${realIdx})">🗑 刪除</button>
@@ -1333,8 +1340,8 @@ function gaugeRenderEngineers(){
       <h2 style="margin:0 0 4px;">👤 工程師 Email 對照表</h2>
       <div class="sub" style="margin-bottom:12px;">${editing?'編輯工程師資料':'新增工程師(供「負責工程師」下拉選單與到期提醒信使用)'}</div>
       <div class="grid">
-        <div><label>姓名</label><input id="eng_name" value="${rec.name||''}" placeholder="工程師姓名"></div>
-        <div><label>Email</label><input id="eng_email" value="${rec.email||''}" placeholder="name@company.com"></div>
+        <div><label>姓名</label><input id="eng_name" value="${escHtml(rec.name||'')}" placeholder="工程師姓名"></div>
+        <div><label>Email</label><input id="eng_email" value="${escHtml(rec.email||'')}" placeholder="name@company.com"></div>
       </div>
       <div class="actions">
         <button class="btn-primary" onclick="gaugeSubmitEng()">${editing?'💾 儲存修改':'➕ 新增工程師'}</button>
@@ -1514,20 +1521,20 @@ function iqcRender(){
     return `
       <tr class="${r.verdict==='NG'?'ng-row':''}">
         <td>${toYMD(r.date)}</td>
-        <td>${r.partName||'—'}</td>
+        <td>${escHtml(r.partName||'—')}</td>
         <td style="text-align:left;">${r.wo||''}</td>
-        <td>${r.bake||'—'}</td>
-        <td>${r.vendor||'—'}</td>
-        <td>${r.sample||''}</td>
+        <td>${escHtml(r.bake||'—')}</td>
+        <td>${escHtml(r.vendor||'—')}</td>
+        <td>${escHtml(r.sample||'')}</td>
         <td>${iqcDot(r.app)}</td>
         <td>${iqcDot(r.jig)}</td>
         <td>${iqcDot(r.adh)}</td>
         <td>${iqcDot(r.tap)}</td>
         <td style="text-align:left;">${r.desc||'—'}</td>
         <td><span class="iqc-verdict-pill ${r.verdict==='OK'?'ok':r.verdict==='NG'?'ng':'sp'}">${r.verdict||''}</span></td>
-        <td>${r.inspector||''}</td>
-        <td>${r.approver||''}</td>
-        <td>${r.remark||'—'}</td>
+        <td>${escHtml(r.inspector||'')}</td>
+        <td>${escHtml(r.approver||'')}</td>
+        <td>${escHtml(r.remark||'—')}</td>
         <td style="white-space:nowrap;">
           <button class="gauge-edit-btn" onclick="iqcEdit(${i})">✏ 編輯</button>
           <button class="gauge-del-btn" onclick="iqcDelete(${i})">🗑 刪除</button>
@@ -1789,21 +1796,21 @@ function heatRender(){
         <div><label>熱處理爐別</label>
           <select id="heat_furnace">${HEAT_FURNACE_OPTIONS.map(o=>`<option value="${o}" ${rec.furnace===o?'selected':''}>${o}</option>`).join('')}</select>
         </div>
-        <div><label>料號</label><input id="heat_partNo" value="${rec.partNo||''}" placeholder="料號"></div>
-        <div><label>熱處理硬度 #1</label><input id="heat_h1" value="${rec.hardness1||''}" placeholder="硬度值"></div>
-        <div><label>熱處理硬度 #2</label><input id="heat_h2" value="${rec.hardness2||''}" placeholder="硬度值"></div>
-        <div><label>熱處理硬度 #3</label><input id="heat_h3" value="${rec.hardness3||''}" placeholder="硬度值"></div>
-        <div><label>熱處理硬度 #4</label><input id="heat_h4" value="${rec.hardness4||''}" placeholder="硬度值"></div>
-        <div><label>熱處理硬度 #5</label><input id="heat_h5" value="${rec.hardness5||''}" placeholder="硬度值"></div>
-        <div><label>數量</label><input id="heat_qty" value="${rec.qty||''}" placeholder="數量"></div>
-        <div><label>出爐日</label><input id="heat_bakeDate" value="${rec.bakeDate||''}" placeholder="如: 2026/06/24"></div>
-        <div><label>工單單號</label><input id="heat_wo" value="${rec.wo||''}" placeholder="工單單號"></div>
+        <div><label>料號</label><input id="heat_partNo" value="${escHtml(rec.partNo||'')}" placeholder="料號"></div>
+        <div><label>熱處理硬度 #1</label><input id="heat_h1" value="${escHtml(rec.hardness1||'')}" placeholder="硬度值"></div>
+        <div><label>熱處理硬度 #2</label><input id="heat_h2" value="${escHtml(rec.hardness2||'')}" placeholder="硬度值"></div>
+        <div><label>熱處理硬度 #3</label><input id="heat_h3" value="${escHtml(rec.hardness3||'')}" placeholder="硬度值"></div>
+        <div><label>熱處理硬度 #4</label><input id="heat_h4" value="${escHtml(rec.hardness4||'')}" placeholder="硬度值"></div>
+        <div><label>熱處理硬度 #5</label><input id="heat_h5" value="${escHtml(rec.hardness5||'')}" placeholder="硬度值"></div>
+        <div><label>數量</label><input id="heat_qty" value="${escHtml(rec.qty||'')}" placeholder="數量"></div>
+        <div><label>出爐日</label><input id="heat_bakeDate" value="${escHtml(rec.bakeDate||'')}" placeholder="如: 2026/06/24"></div>
+        <div><label>工單單號</label><input id="heat_wo" value="${escHtml(rec.wo||'')}" placeholder="工單單號"></div>
         <div><label>判定</label>
           <select id="heat_verdict">${HEAT_VERDICT_OPTIONS.map(o=>`<option value="${o}" ${rec.verdict===o?'selected':''}>${o}</option>`).join('')}</select>
         </div>
-        <div><label>檢驗員</label><input id="heat_inspector" value="${rec.inspector||''}" placeholder="檢驗員"></div>
-        <div><label>核准</label><input id="heat_approver" value="${rec.approver||''}" placeholder="核准人"></div>
-        <div class="full"><label>備註</label><textarea id="heat_remark" placeholder="備註">${rec.remark||''}</textarea></div>
+        <div><label>檢驗員</label><input id="heat_inspector" value="${escHtml(rec.inspector||'')}" placeholder="檢驗員"></div>
+        <div><label>核准</label><input id="heat_approver" value="${escHtml(rec.approver||'')}" placeholder="核准人"></div>
+        <div class="full"><label>備註</label><textarea id="heat_remark" placeholder="備註">${escHtml(rec.remark||'')}</textarea></div>
       </div>
       <div class="actions">
         <button class="btn-primary" onclick="heatSubmit()">${editing?'💾 儲存修改':'➕ 新增至清單'}</button>
@@ -1826,21 +1833,21 @@ function heatRender(){
     return `
       <tr class="${r.verdict==='特採'?'ng-row':''}">
         <td>${toYMD(r.date)}</td>
-        <td>${r.floor||''}</td>
-        <td>${r.furnace||''}</td>
-        <td>${r.partNo||''}</td>
+        <td>${escHtml(r.floor||'')}</td>
+        <td>${escHtml(r.furnace||'')}</td>
+        <td>${escHtml(r.partNo||'')}</td>
         <td>${heatFmtHardness(r.hardness1)}</td>
         <td>${heatFmtHardness(r.hardness2)}</td>
         <td>${heatFmtHardness(r.hardness3)}</td>
         <td>${heatFmtHardness(r.hardness4)}</td>
         <td>${heatFmtHardness(r.hardness5)}</td>
-        <td>${r.qty||''}</td>
+        <td>${escHtml(r.qty||'')}</td>
         <td>${toYMD(r.bakeDate)}</td>
-        <td>${r.wo||''}</td>
+        <td>${escHtml(r.wo||'')}</td>
         <td><span class="iqc-verdict-pill ${r.verdict==='合格'?'ok':'ng'}">${r.verdict||''}</span></td>
-        <td>${r.inspector||''}</td>
-        <td>${r.approver||''}</td>
-        <td>${r.remark||''}</td>
+        <td>${escHtml(r.inspector||'')}</td>
+        <td>${escHtml(r.approver||'')}</td>
+        <td>${escHtml(r.remark||'')}</td>
         <td style="white-space:nowrap;">
           <button class="gauge-edit-btn" onclick="heatEdit(${i})">✏ 編輯</button>
           <button class="gauge-del-btn" onclick="heatDelete(${i})">🗑 刪除</button>
@@ -2020,14 +2027,14 @@ function sinterRender(){
       <div class="sub" style="margin-bottom:12px;">${editing?'編輯第 '+(sinterState.editIndex+1)+' 筆紀錄':'新增燒結紀錄'}</div>
       <div class="grid">
         <div><label>日期</label><input id="sinter_date" value="${editing?(rec.date||''):sinterTodayDisplay()}" placeholder="如: 2025/09/16"></div>
-        <div><label>爐號</label><input id="sinter_furnace" value="${rec.furnace||''}" placeholder="如: 202"></div>
-        <div><label>溫度(℃)</label><input id="sinter_temp" value="${rec.temp||''}" placeholder="如: 1350"></div>
-        <div><label>工單號</label><input id="sinter_wo" value="${rec.wo||''}" placeholder="工單號"></div>
-        <div><label>模號</label><input id="sinter_model" value="${rec.model||''}" placeholder="如: A / B / C"></div>
+        <div><label>爐號</label><input id="sinter_furnace" value="${escHtml(rec.furnace||'')}" placeholder="如: 202"></div>
+        <div><label>溫度(℃)</label><input id="sinter_temp" value="${escHtml(rec.temp||'')}" placeholder="如: 1350"></div>
+        <div><label>工單號</label><input id="sinter_wo" value="${escHtml(rec.wo||'')}" placeholder="工單號"></div>
+        <div><label>模號</label><input id="sinter_model" value="${escHtml(rec.model||'')}" placeholder="如: A / B / C"></div>
         <div><label>判定</label>
           <select id="sinter_verdict">${SINTER_VERDICT_OPTIONS.map(o=>`<option value="${o}" ${rec.verdict===o?'selected':''}>${o}</option>`).join('')}</select>
         </div>
-        <div class="full"><label>備註</label><textarea id="sinter_remark" placeholder="備註">${rec.remark||''}</textarea></div>
+        <div class="full"><label>備註</label><textarea id="sinter_remark" placeholder="備註">${escHtml(rec.remark||'')}</textarea></div>
       </div>
       <div class="actions">
         <button class="btn-primary" onclick="sinterSubmit()">${editing?'💾 儲存修改':'➕ 新增至清單'}</button>
@@ -2053,12 +2060,12 @@ function sinterRender(){
     return `
       <tr class="${r.verdict==='不合格'?'ng-row':''}">
         <td>${toYMD(r.date)}</td>
-        <td>${r.furnace||''}</td>
-        <td>${r.temp||''}</td>
-        <td>${r.wo||''}</td>
-        <td>${r.model||''}</td>
+        <td>${escHtml(r.furnace||'')}</td>
+        <td>${escHtml(r.temp||'')}</td>
+        <td>${escHtml(r.wo||'')}</td>
+        <td>${escHtml(r.model||'')}</td>
         <td><span class="iqc-verdict-pill ${r.verdict==='合格'?'ok':'ng'}">${r.verdict||''}</span></td>
-        <td title="${(r.remark||'').replace(/"/g,'&quot;')}">${remarkShort}</td>
+        <td title="${escHtml(r.remark||'')}">${escHtml(remarkShort)}</td>
         <td style="white-space:nowrap;">
           <button class="gauge-edit-btn" onclick="sinterEdit(${i})">✏ 編輯</button>
           <button class="gauge-del-btn" onclick="sinterDelete(${i})">🗑 刪除</button>
@@ -2493,9 +2500,9 @@ function dashRenderFqcDetail(period){
     ? '<tr><td colspan="5" style="text-align:center;color:#999;">本期間無拒收紀錄</td></tr>'
     : ngDetails.map(r=>`<tr>
         <td>${toYMD(r.date)}</td>
-        <td>${r.lot||'—'}</td>
-        <td>${r.wo||'—'}</td>
-        <td>${r.partNo||'—'}</td>
+        <td>${escHtml(r.lot||'—')}</td>
+        <td>${escHtml(r.wo||'—')}</td>
+        <td>${escHtml(r.partNo||'—')}</td>
         <td style="text-align:left;color:var(--bad);">${r.note||'—'}</td>
       </tr>`).join('');
 
@@ -2503,9 +2510,9 @@ function dashRenderFqcDetail(period){
     ? '<tr><td colspan="5" style="text-align:center;color:#999;">本期間無特採紀錄</td></tr>'
     : spDetails.map(r=>`<tr>
         <td>${toYMD(r.date)}</td>
-        <td>${r.lot||'—'}</td>
-        <td>${r.wo||'—'}</td>
-        <td>${r.partNo||'—'}</td>
+        <td>${escHtml(r.lot||'—')}</td>
+        <td>${escHtml(r.wo||'—')}</td>
+        <td>${escHtml(r.partNo||'—')}</td>
         <td style="text-align:left;color:#856404;">${r.note||'—'}</td>
       </tr>`).join('');
 
@@ -2576,10 +2583,10 @@ function dashRenderVendorReturn(period){
     ? '<tr><td colspan="6" style="text-align:center;color:#999;">本期間無退料紀錄</td></tr>'
     : ngDetails.map(r=>`<tr>
         <td>${toYMD(r.date)}</td>
-        <td>${r.vendor||'—'}</td>
-        <td>${r.wo||'—'}</td>
-        <td>${r.partName||'—'}</td>
-        <td>${r.sample||'—'}</td>
+        <td>${escHtml(r.vendor||'—')}</td>
+        <td>${escHtml(r.wo||'—')}</td>
+        <td>${escHtml(r.partName||'—')}</td>
+        <td>${escHtml(r.sample||'—')}</td>
         <td style="text-align:left;color:var(--bad);">${r.desc||'—'}</td>
       </tr>`).join('');
 
@@ -2587,10 +2594,10 @@ function dashRenderVendorReturn(period){
     ? '<tr><td colspan="6" style="text-align:center;color:#999;">本期間無特採紀錄</td></tr>'
     : spDetails.map(r=>`<tr>
         <td>${toYMD(r.date)}</td>
-        <td>${r.vendor||'—'}</td>
-        <td>${r.wo||'—'}</td>
-        <td>${r.partName||'—'}</td>
-        <td>${r.sample||'—'}</td>
+        <td>${escHtml(r.vendor||'—')}</td>
+        <td>${escHtml(r.wo||'—')}</td>
+        <td>${escHtml(r.partName||'—')}</td>
+        <td>${escHtml(r.sample||'—')}</td>
         <td style="text-align:left;color:#856404;">${r.desc||'—'}</td>
       </tr>`).join('');
 
@@ -2681,22 +2688,22 @@ function injRender(){
       <div class="sub" style="margin-bottom:12px;">${editing?'編輯第 '+(injState.editIndex+1)+' 筆紀錄':'新增射出成形紀錄'}</div>
       <div class="grid">
         <div><label>日期</label><input id="inj_date" value="${editing?(rec.date||''):injTodayDisplay()}" placeholder="如: 115/06/16"></div>
-        <div><label>機台號</label><input id="inj_machine" value="${rec.machine||''}" placeholder="機台號"></div>
-        <div><label>品名</label><input id="inj_partName" value="${rec.partName||''}" placeholder="品名"></div>
-        <div><label>模號</label><input id="inj_model" value="${rec.model||''}" placeholder="模號"></div>
-        <div><label>首件時間</label><input id="inj_firstTime" value="${rec.firstTime||''}" placeholder="如: 09:30"></div>
-        <div><label>末件時間</label><input id="inj_lastTime" value="${rec.lastTime||''}" placeholder="如: 18:00"></div>
-        <div><label>重量</label><input id="inj_weight" value="${rec.weight||''}" placeholder="重量"></div>
-        <div><label>密度</label><input id="inj_density" value="${rec.density||''}" placeholder="密度"></div>
+        <div><label>機台號</label><input id="inj_machine" value="${escHtml(rec.machine||'')}" placeholder="機台號"></div>
+        <div><label>品名</label><input id="inj_partName" value="${escHtml(rec.partName||'')}" placeholder="品名"></div>
+        <div><label>模號</label><input id="inj_model" value="${escHtml(rec.model||'')}" placeholder="模號"></div>
+        <div><label>首件時間</label><input id="inj_firstTime" value="${escHtml(rec.firstTime||'')}" placeholder="如: 09:30"></div>
+        <div><label>末件時間</label><input id="inj_lastTime" value="${escHtml(rec.lastTime||'')}" placeholder="如: 18:00"></div>
+        <div><label>重量</label><input id="inj_weight" value="${escHtml(rec.weight||'')}" placeholder="重量"></div>
+        <div><label>密度</label><input id="inj_density" value="${escHtml(rec.density||'')}" placeholder="密度"></div>
         <div><label>外觀</label>
           <select id="inj_appearance">${INJ_APPEARANCE_OPTIONS.map(o=>`<option value="${o}" ${rec.appearance===o?'selected':''}>${o||'(空白)'}</option>`).join('')}</select>
         </div>
-        <div><label>檢驗員</label><input id="inj_inspector" value="${rec.inspector||''}" placeholder="檢驗員"></div>
-        <div><label>審查</label><input id="inj_approver" value="${rec.approver||''}" placeholder="審查"></div>
+        <div><label>檢驗員</label><input id="inj_inspector" value="${escHtml(rec.inspector||'')}" placeholder="檢驗員"></div>
+        <div><label>審查</label><input id="inj_approver" value="${escHtml(rec.approver||'')}" placeholder="審查"></div>
         <div><label>判定</label>
           <select id="inj_verdict">${INJ_VERDICT_OPTIONS.map(o=>`<option value="${o}" ${rec.verdict===o?'selected':''}>${o}</option>`).join('')}</select>
         </div>
-        <div class="full"><label>備註(可放OCR原始文字或人工註記)</label><textarea id="inj_remark" placeholder="備註">${rec.remark||''}</textarea></div>
+        <div class="full"><label>備註(可放OCR原始文字或人工註記)</label><textarea id="inj_remark" placeholder="備註">${escHtml(rec.remark||'')}</textarea></div>
       </div>
       <div class="actions">
         <button class="btn-primary" onclick="injSubmit()">${editing?'💾 儲存修改':'➕ 新增至清單'}</button>
@@ -2721,18 +2728,18 @@ function injRender(){
     return `
       <tr class="${r.verdict==='不合格'?'ng-row':''}">
         <td>${toYMD(r.date)}</td>
-        <td>${r.machine||''}</td>
-        <td>${r.partName||''}</td>
-        <td>${r.model||''}</td>
+        <td>${escHtml(r.machine||'')}</td>
+        <td>${escHtml(r.partName||'')}</td>
+        <td>${escHtml(r.model||'')}</td>
         <td style="color:#666;">${r.materialBatch9||'—'}</td>
         <td style="color:#666;white-space:nowrap;">${nine9}</td>
-        <td>${r.firstTime||''}</td>
-        <td>${r.lastTime||''}</td>
-        <td>${r.weight||''}</td>
-        <td>${r.density||''}</td>
-        <td>${r.appearance||''}</td>
-        <td>${r.inspector||''}</td>
-        <td>${r.approver||''}</td>
+        <td>${escHtml(r.firstTime||'')}</td>
+        <td>${escHtml(r.lastTime||'')}</td>
+        <td>${escHtml(r.weight||'')}</td>
+        <td>${escHtml(r.density||'')}</td>
+        <td>${escHtml(r.appearance||'')}</td>
+        <td>${escHtml(r.inspector||'')}</td>
+        <td>${escHtml(r.approver||'')}</td>
         <td><span class="iqc-verdict-pill ${r.verdict==='合格'?'ok':(r.verdict==='不合格'?'ng':'')}" style="${r.verdict==='待人工確認'?'background:#fff4e0;color:var(--warn);':''}">${r.verdict||''}</span></td>
         <td style="max-width:220px;white-space:pre-wrap;word-break:break-all;">${remarkHtml}</td>
         <td style="white-space:nowrap;">
@@ -2858,14 +2865,14 @@ async function injViewNineOClockDetail(i){
 function injBuildNineOClockHtml(rows){
   if(!rows || rows.length===0) return '<div class="small" style="color:#999;padding:8px 0;">無資料</div>';
   const trs = rows.map(r=>`<tr>
-      <td>${r.timestamp||''}</td>
-      <td>${r.product||''}</td>
-      <td>${r.materialBatch||''}</td>
-      <td>${r.workOrder||''}</td>
+      <td>${escHtml(r.timestamp||'')}</td>
+      <td>${escHtml(r.product||'')}</td>
+      <td>${escHtml(r.materialBatch||'')}</td>
+      <td>${escHtml(r.workOrder||'')}</td>
       <td>${r.startTime||''}~${r.endTime||''}</td>
-      <td>${r.densityCol||''}</td>
-      <td>${r.measureItem||''}</td>
-      <td>${r.measureValue||''}</td>
+      <td>${escHtml(r.densityCol||'')}</td>
+      <td>${escHtml(r.measureItem||'')}</td>
+      <td>${escHtml(r.measureValue||'')}</td>
       <td>${r.inspector||''} / ${r.reviewer||''}</td>
     </tr>`).join('');
   return `<div class="table-wrap"><table>
@@ -2951,10 +2958,10 @@ function fqcRender(){
       <div class="sub" style="margin-bottom:12px;">${editing?'編輯第 '+(fqcState.editIndex+1)+' 筆紀錄':'新增出貨檢驗紀錄'}</div>
       <div class="grid">
         <div><label>檢驗日期</label><input id="fqc_date" value="${editing?(rec.date||''):fqcTodayDisplay()}" placeholder="如: 2026/06/26"></div>
-        <div><label>批號</label><input id="fqc_lot" value="${rec.lot||''}" placeholder="批號"></div>
-        <div><label>工單</label><input id="fqc_wo" value="${rec.wo||''}" placeholder="工單"></div>
-        <div><label>產品/料號</label><input id="fqc_partNo" value="${rec.partNo||''}" placeholder="產品/料號"></div>
-        <div><label>檢驗數量</label><input id="fqc_qty" value="${rec.qty||''}" placeholder="檢驗數量"></div>
+        <div><label>批號</label><input id="fqc_lot" value="${escHtml(rec.lot||'')}" placeholder="批號"></div>
+        <div><label>工單</label><input id="fqc_wo" value="${escHtml(rec.wo||'')}" placeholder="工單"></div>
+        <div><label>產品/料號</label><input id="fqc_partNo" value="${escHtml(rec.partNo||'')}" placeholder="產品/料號"></div>
+        <div><label>檢驗數量</label><input id="fqc_qty" value="${escHtml(rec.qty||'')}" placeholder="檢驗數量"></div>
         <div><label>尺寸判定</label>
           <select id="fqc_dimension">${FQC_DIM_OPTIONS.map(o=>`<option value="${o}" ${rec.dimension===o?'selected':''}>${o}</option>`).join('')}</select>
         </div>
@@ -2964,12 +2971,12 @@ function fqcRender(){
         <div><label>功能/性能判定</label>
           <select id="fqc_func">${FQC_FUNC_OPTIONS.map(o=>`<option value="${o}" ${rec.func===o?'selected':''}>${o}</option>`).join('')}</select>
         </div>
-        <div><label>AQL等級/抽樣數</label><input id="fqc_aql" value="${rec.aql||''}" placeholder="AQL等級/抽樣數"></div>
-        <div><label>檢驗員</label><input id="fqc_inspector" value="${rec.inspector||''}" placeholder="檢驗員"></div>
+        <div><label>AQL等級/抽樣數</label><input id="fqc_aql" value="${escHtml(rec.aql||'')}" placeholder="AQL等級/抽樣數"></div>
+        <div><label>檢驗員</label><input id="fqc_inspector" value="${escHtml(rec.inspector||'')}" placeholder="檢驗員"></div>
         <div><label>總結判定</label>
           <select id="fqc_result">${FQC_RESULT_OPTIONS.map(o=>`<option value="${o}" ${rec.result===o?'selected':''}>${o}</option>`).join('')}</select>
         </div>
-        <div class="full"><label>備註</label><textarea id="fqc_note" placeholder="備註">${rec.note||''}</textarea></div>
+        <div class="full"><label>備註</label><textarea id="fqc_note" placeholder="備註">${escHtml(rec.note||'')}</textarea></div>
       </div>
       <div class="actions">
         <button class="btn-primary" onclick="fqcSubmit()">${editing?'💾 儲存修改':'➕ 新增至清單'}</button>
@@ -2992,17 +2999,17 @@ function fqcRender(){
     return `
       <tr class="${r.result==='拒收'?'ng-row':''}">
         <td>${toYMD(r.date)}</td>
-        <td>${r.lot||''}</td>
-        <td>${r.wo||''}</td>
-        <td>${r.partNo||''}</td>
-        <td>${r.qty||''}</td>
-        <td>${r.dimension||''}</td>
-        <td>${r.appearance||''}</td>
-        <td>${r.func||''}</td>
-        <td>${r.aql||''}</td>
-        <td>${r.inspector||''}</td>
+        <td>${escHtml(r.lot||'')}</td>
+        <td>${escHtml(r.wo||'')}</td>
+        <td>${escHtml(r.partNo||'')}</td>
+        <td>${escHtml(r.qty||'')}</td>
+        <td>${escHtml(r.dimension||'')}</td>
+        <td>${escHtml(r.appearance||'')}</td>
+        <td>${escHtml(r.func||'')}</td>
+        <td>${escHtml(r.aql||'')}</td>
+        <td>${escHtml(r.inspector||'')}</td>
         <td><span class="iqc-verdict-pill ${r.result==='允收'?'ok':'ng'}">${r.result||''}</span></td>
-        <td>${r.note||''}</td>
+        <td>${escHtml(r.note||'')}</td>
         <td style="white-space:nowrap;">
           <button class="gauge-edit-btn" onclick="fqcEdit(${i})">✏ 編輯</button>
           <button class="gauge-del-btn" onclick="fqcDelete(${i})">🗑 刪除</button>
@@ -3219,19 +3226,19 @@ function blastRender(){
       <div class="sub" style="margin-bottom:12px;">${editing?'編輯第 '+(blastState.editIndex+1)+' 筆紀錄':'新增噴砂清洗紀錄'}</div>
       <div class="grid">
         <div><label>日期</label><input type="date" id="blast_date" value="${editing?blastToInputDate(rec.date):blastTodayISO()}"></div>
-        <div><label>品名</label><input id="blast_partName" value="${rec.partName||''}" placeholder="如: Z840 R/A"></div>
-        <div><label>工單號碼</label><input id="blast_wo" value="${rec.wo||''}" placeholder="如: JM1E-26-06-164"></div>
-        <div><label>料號</label><input id="blast_partNo" value="${rec.partNo||''}" placeholder="料號(可留空)"></div>
+        <div><label>品名</label><input id="blast_partName" value="${escHtml(rec.partName||'')}" placeholder="如: Z840 R/A"></div>
+        <div><label>工單號碼</label><input id="blast_wo" value="${escHtml(rec.wo||'')}" placeholder="如: JM1E-26-06-164"></div>
+        <div><label>料號</label><input id="blast_partNo" value="${escHtml(rec.partNo||'')}" placeholder="料號(可留空)"></div>
         <div><label>設備/方式</label>
           <select id="blast_method">${BLAST_METHOD_OPTIONS.map(o=>`<option value="${o}" ${rec.method===o?'selected':''}>${o}</option>`).join('')}</select>
         </div>
-        <div><label>數量</label><input id="blast_qty" value="${rec.qty||''}" placeholder="如: 850"></div>
-        <div><label>抽樣數</label><input id="blast_sample" value="${rec.sample||''}" placeholder="如: 80"></div>
+        <div><label>數量</label><input id="blast_qty" value="${escHtml(rec.qty||'')}" placeholder="如: 850"></div>
+        <div><label>抽樣數</label><input id="blast_sample" value="${escHtml(rec.sample||'')}" placeholder="如: 80"></div>
         <div><label>判定</label>
           <select id="blast_result">${BLAST_RESULT_OPTIONS.map(o=>`<option value="${o}" ${rec.result===o?'selected':''}>${o}</option>`).join('')}</select>
         </div>
-        <div><label>檢驗員</label><input id="blast_inspector" value="${rec.inspector||''}" placeholder="檢驗員"></div>
-        <div class="full"><label>備註</label><textarea id="blast_note" placeholder="如: W29">${rec.note||''}</textarea></div>
+        <div><label>檢驗員</label><input id="blast_inspector" value="${escHtml(rec.inspector||'')}" placeholder="檢驗員"></div>
+        <div class="full"><label>備註</label><textarea id="blast_note" placeholder="如: W29">${escHtml(rec.note||'')}</textarea></div>
       </div>
       <div class="actions">
         <button class="btn-primary" onclick="blastSubmit()">${editing?'💾 儲存修改':'➕ 新增至清單'}</button>
@@ -3254,15 +3261,15 @@ function blastRender(){
     return `
       <tr class="${r.result==='NG'?'ng-row':''}">
         <td>${toYMD(r.date)}</td>
-        <td>${r.partName||''}</td>
-        <td>${r.wo||''}</td>
-        <td>${r.partNo||''}</td>
-        <td>${r.method||''}</td>
-        <td>${r.qty||''}</td>
-        <td>${r.sample||''}</td>
+        <td>${escHtml(r.partName||'')}</td>
+        <td>${escHtml(r.wo||'')}</td>
+        <td>${escHtml(r.partNo||'')}</td>
+        <td>${escHtml(r.method||'')}</td>
+        <td>${escHtml(r.qty||'')}</td>
+        <td>${escHtml(r.sample||'')}</td>
         <td><span class="iqc-verdict-pill ${r.result==='OK'?'ok':'ng'}">${r.result||''}</span></td>
-        <td>${r.inspector||''}</td>
-        <td>${r.note||''}</td>
+        <td>${escHtml(r.inspector||'')}</td>
+        <td>${escHtml(r.note||'')}</td>
         <td style="white-space:nowrap;">
           <button class="gauge-edit-btn" onclick="blastEdit(${i})">✏ 編輯</button>
           <button class="gauge-del-btn" onclick="blastDelete(${i})">🗑 刪除</button>
