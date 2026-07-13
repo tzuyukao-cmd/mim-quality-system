@@ -654,6 +654,13 @@ function _normSearch(s){
   return String(s==null?'':s).normalize('NFKC').replace(/\s+/g,'').toLowerCase();
 }
 
+// 把純文字裡的網址(http/https開頭)轉成可點擊的超連結，其餘文字先做HTML escape避免XSS
+function linkifyText(s){
+  const text = String(s==null?'':s);
+  const esc = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return esc.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+}
+
 function toYMD(val){
   if(val===null || val===undefined || val==='') return '';
   if(val instanceof Date){
@@ -2678,7 +2685,7 @@ function injRender(){
     if(injState.filterVerdict!=='all' && r.verdict!==injState.filterVerdict) return false;
     if(injState.filterText){
       const f = _normSearch(injState.filterText);
-      const hay = _normSearch([r.machine,r.partName,r.model].join(' '));
+      const hay = _normSearch([r.machine,r.partName,r.model,r.materialBatchR,r.materialBatchL].join(' '));
       if(!hay.includes(f)) return false;
     }
     return true;
@@ -2686,13 +2693,19 @@ function injRender(){
 
   const rows = filtered.map(r=>{
     const i = injState.rows.indexOf(r);
-    const remarkShort = (r.remark||'').length>40 ? (r.remark||'').slice(0,40)+'…' : (r.remark||'');
+    const remarkHtml = linkifyText(r.remark||'');
+    const nine9R = (r.density9R||r.weight9R) ? `密度:${r.density9R||'—'} / 重量:${r.weight9R||'—'}` : '—';
+    const nine9L = (r.density9L||r.weight9L) ? `密度:${r.density9L||'—'} / 重量:${r.weight9L||'—'}` : '—';
     return `
       <tr class="${r.verdict==='不合格'?'ng-row':''}">
         <td>${toYMD(r.date)}</td>
         <td>${r.machine||''}</td>
         <td>${r.partName||''}</td>
         <td>${r.model||''}</td>
+        <td style="color:#666;">${r.materialBatchR||'—'}</td>
+        <td style="color:#666;">${r.materialBatchL||'—'}</td>
+        <td style="color:#666;white-space:nowrap;">${nine9R}</td>
+        <td style="color:#666;white-space:nowrap;">${nine9L}</td>
         <td>${r.firstTime||''}</td>
         <td>${r.lastTime||''}</td>
         <td>${r.weight||''}</td>
@@ -2701,10 +2714,11 @@ function injRender(){
         <td>${r.inspector||''}</td>
         <td>${r.approver||''}</td>
         <td><span class="iqc-verdict-pill ${r.verdict==='合格'?'ok':(r.verdict==='不合格'?'ng':'')}" style="${r.verdict==='待人工確認'?'background:#fff4e0;color:var(--warn);':''}">${r.verdict||''}</span></td>
-        <td title="${(r.remark||'').replace(/"/g,'&quot;')}">${remarkShort}</td>
+        <td style="max-width:220px;white-space:pre-wrap;word-break:break-all;">${remarkHtml}</td>
         <td style="white-space:nowrap;">
           <button class="gauge-edit-btn" onclick="injEdit(${i})">✏ 編輯</button>
-          <button class="gauge-del-btn" onclick="injDelete(${i})">🗑 刪除</button>
+          <button class="gauge-del-btn" onclick="injDelete(${i})">🗑 刪除</button><br>
+          <button class="btn-ghost" style="margin-top:4px;font-size:12px;padding:3px 8px;" onclick="injGenerateSnapshot(${i})">📸 產生9點快照</button>
         </td>
       </tr>`;
   }).join('');
@@ -2725,11 +2739,11 @@ function injRender(){
           <option value="待人工確認" ${injState.filterVerdict==='待人工確認'?'selected':''}>僅看待人工確認</option>
         </select>
       </div>
-      <div class="gauge-summary">顯示 ${filtered.length} / ${injState.rows.length} 筆(待人工確認的請點「編輯」對照備註內容補填)</div>
+      <div class="gauge-summary">顯示 ${filtered.length} / ${injState.rows.length} 筆(待人工確認的請點「編輯」對照備註內容補填；材料批號/9點量測值自動帶自生產工站檢驗記錄卡系統，唯讀不需填寫；點「產生9點快照」會把該筆的9點原始資料存成連結貼進備註)</div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>日期</th><th>機台號</th><th>品名</th><th>模號</th><th>首件時間</th><th>末件時間</th><th>重量</th><th>密度</th><th>外觀</th><th>檢驗員</th><th>審查</th><th>判定</th><th>備註</th><th>操作</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="14" style="text-align:center;color:#999;padding:16px;">尚無資料</td></tr>'}</tbody>
+          <thead><tr><th>日期</th><th>機台號</th><th>品名</th><th>模號</th><th>材料批號(R)</th><th>材料批號(L)</th><th>9點量測(R)</th><th>9點量測(L)</th><th>首件時間</th><th>末件時間</th><th>重量</th><th>密度</th><th>外觀</th><th>檢驗員</th><th>審查</th><th>判定</th><th>備註</th><th>操作</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="18" style="text-align:center;color:#999;padding:16px;">尚無資料</td></tr>'}</tbody>
         </table>
       </div>
     </div>
@@ -2801,6 +2815,27 @@ async function injDelete(i){
   injState.rows.splice(i,1);
   await injSaveToCloud();
   injRender();
+}
+
+async function injGenerateSnapshot(i){
+  const r = injState.rows[i];
+  if(!r){ showToast('❌ 找不到這筆紀錄'); return; }
+  if(!r.date || !r.machine){ showToast('⚠️ 這筆紀錄缺少日期或機台號，無法查詢來源資料'); return; }
+  showToast('📸 產生快照中…');
+  try{
+    const res = await injApiPost('generateSnapshot', {date:r.date, machine:r.machine, partName:r.partName||''});
+    if(res && res.ok && res.url){
+      const linkLine = '[9點資料快照] ' + res.url;
+      r.remark = r.remark ? (r.remark + '\n' + linkLine) : linkLine;
+      await injSaveToCloud();
+      injRender();
+      showToast('✅ 快照已產生並存入備註');
+    }else{
+      showToast('❌ 快照產生失敗:'+((res&&res.error)||'未知錯誤'));
+    }
+  }catch(err){
+    showToast('❌ 連線雲端失敗:'+err.message);
+  }
 }
 
 async function injSaveToCloud(){
