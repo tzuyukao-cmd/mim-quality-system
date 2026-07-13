@@ -2439,8 +2439,61 @@ function dashRenderMain(){
       <div class="small" style="margin-top:14px;">總計${periodLabel}全製程紀錄 ${totalAll} 筆,其中 NG/不合格 ${totalFail} 筆。</div>
 
       ${dashRenderVendorReturn(dashState.period)}
+      ${dashRenderFqcDetail(dashState.period)}
     </div>
   `;
+}
+
+function dashRenderFqcDetail(period){
+  const [from, to] = dashGetPeriodRange(period);
+  const periodLabel = period==='week' ? '本週' : '本月';
+  const rows = (typeof fqcState!=='undefined' ? (fqcState.rows||[]) : []).filter(r=>{
+    const d = dashParseDate(r.date);
+    return d && d >= from && d <= to;
+  });
+
+  if(rows.length===0) return `
+    <div class="dash-section-title" style="margin-top:16px;">📦 ${periodLabel} FQC 出貨檢驗狀況</div>
+    <div class="small" style="color:#999;padding:8px 0;">本期間無出貨檢驗資料</div>`;
+
+  const ngDetails = rows.filter(r=>r.result==='拒收');
+  const spDetails = rows.filter(r=>r.result==='特採');
+
+  const ngDetailRows = ngDetails.length===0
+    ? '<tr><td colspan="5" style="text-align:center;color:#999;">本期間無拒收紀錄</td></tr>'
+    : ngDetails.map(r=>`<tr>
+        <td>${toYMD(r.date)}</td>
+        <td>${r.lot||'—'}</td>
+        <td>${r.wo||'—'}</td>
+        <td>${r.partNo||'—'}</td>
+        <td style="text-align:left;color:var(--bad);">${r.note||'—'}</td>
+      </tr>`).join('');
+
+  const spDetailRows = spDetails.length===0
+    ? '<tr><td colspan="5" style="text-align:center;color:#999;">本期間無特採紀錄</td></tr>'
+    : spDetails.map(r=>`<tr>
+        <td>${toYMD(r.date)}</td>
+        <td>${r.lot||'—'}</td>
+        <td>${r.wo||'—'}</td>
+        <td>${r.partNo||'—'}</td>
+        <td style="text-align:left;color:#856404;">${r.note||'—'}</td>
+      </tr>`).join('');
+
+  return `
+    <div class="dash-section-title" style="margin-top:16px;">🔴 ${periodLabel} FQC拒收明細(NG)</div>
+    <div class="table-wrap">
+      <table class="dash-module-table">
+        <thead><tr><th>日期</th><th>批號</th><th>工單號</th><th>料號</th><th>備註</th></tr></thead>
+        <tbody>${ngDetailRows}</tbody>
+      </table>
+    </div>
+    <div class="dash-section-title" style="margin-top:16px;">🟡 ${periodLabel} FQC特採明細</div>
+    <div class="table-wrap">
+      <table class="dash-module-table">
+        <thead><tr><th>日期</th><th>批號</th><th>工單號</th><th>料號</th><th>備註</th></tr></thead>
+        <tbody>${spDetailRows}</tbody>
+      </table>
+    </div>`;
 }
 
 function dashRenderVendorReturn(period){
