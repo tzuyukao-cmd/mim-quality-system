@@ -1473,7 +1473,7 @@ function iqcRender(){
     if(iqcState.filterVerdict!=='all' && r.verdict!==iqcState.filterVerdict) return false;
     if(iqcState.filterText){
       const f = _normSearch(iqcState.filterText);
-      const hay = _normSearch([r.wo,r.vendor,r.partName,r.remark,r.desc].join(' '));
+      const hay = _normSearch([r.wo,r.vendor,r.partName,r.remark,r.desc,r.bake].join(' '));
       if(!hay.includes(f)) return false;
     }
     return true;
@@ -1513,7 +1513,7 @@ function iqcRender(){
         <button class="btn-ghost" onclick="iqcInit()">🔄 重新讀取雲端 / Tải lại từ Cloud</button>
       </div>
       <div class="gauge-filter-row">
-        <input id="iqc_filterText" placeholder="🔍 搜尋工單號／廠商／備註... / Tìm số lệnh／NCC／ghi chú" value="${iqcState.filterText}" oninput="iqcSetFilter('filterText',this.value,event)" oncompositionend="iqcSetFilter('filterText',this.value)">
+        <input id="iqc_filterText" placeholder="🔍 搜尋工單號／廠商／品名／出爐日期／備註... / Tìm số lệnh／NCC／ghi chú" value="${iqcState.filterText}" oninput="iqcSetFilter('filterText',this.value,event)" oncompositionend="iqcSetFilter('filterText',this.value)">
         <select onchange="iqcSetFilter('filterVerdict',this.value)">
           <option value="all" ${iqcState.filterVerdict==='all'?'selected':''}>全部 / Tất cả</option>
           <option value="OK" ${iqcState.filterVerdict==='OK'?'selected':''}>僅看 OK</option>
