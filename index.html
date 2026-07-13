@@ -654,11 +654,15 @@ function _normSearch(s){
   return String(s==null?'':s).normalize('NFKC').replace(/\s+/g,'').toLowerCase();
 }
 
-// 把純文字裡的網址(http/https開頭)轉成可點擊的超連結，其餘文字先做HTML escape避免XSS
+// 把純文字裡的網址(http/https開頭)轉成可點擊的超連結，畫面上只顯示精簡文字（不印出落落長的完整網址），
+// 實際跳轉還是用完整網址，只是視覺上比較乾淨
 function linkifyText(s){
   const text = String(s==null?'':s);
   const esc = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  return esc.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  return esc.replace(/(https?:\/\/[^\s<]+)/g, function(url){
+    const label = url.indexOf('action=viewSnapshot')!==-1 ? '🔗 查看9點快照' : '🔗 查看連結';
+    return `<a href="${url}" target="_blank" rel="noopener">${label}</a>`;
+  });
 }
 
 function toYMD(val){
@@ -2825,8 +2829,7 @@ async function injGenerateSnapshot(i){
   try{
     const res = await injApiPost('generateSnapshot', {date:r.date, machine:r.machine, partName:r.partName||''});
     if(res && res.ok && res.url){
-      const linkLine = '[9點資料快照] ' + res.url;
-      r.remark = r.remark ? (r.remark + '\n' + linkLine) : linkLine;
+      r.remark = r.remark ? (r.remark + '\n' + res.url) : res.url;
       await injSaveToCloud();
       injRender();
       showToast('✅ 快照已產生並存入備註');
