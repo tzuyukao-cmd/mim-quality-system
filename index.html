@@ -2708,7 +2708,7 @@ function injRender(){
     if(injState.filterVerdict!=='all' && r.verdict!==injState.filterVerdict) return false;
     if(injState.filterText){
       const f = _normSearch(injState.filterText);
-      const hay = _normSearch([r.machine,r.partName,r.model,r.materialBatchR,r.materialBatchL].join(' '));
+      const hay = _normSearch([r.machine,r.partName,r.model,r.materialBatch9].join(' '));
       if(!hay.includes(f)) return false;
     }
     return true;
@@ -2717,18 +2717,15 @@ function injRender(){
   const rows = filtered.map(r=>{
     const i = injState.rows.indexOf(r);
     const remarkHtml = linkifyText(r.remark||'');
-    const nine9R = (r.density9R||r.weight9R) ? `密度:${r.density9R||'—'} / 重量:${r.weight9R||'—'}` : '—';
-    const nine9L = (r.density9L||r.weight9L) ? `密度:${r.density9L||'—'} / 重量:${r.weight9L||'—'}` : '—';
+    const nine9 = (r.density9||r.weight9) ? `密度:${r.density9||'—'} / 重量:${r.weight9||'—'}` : '—';
     return `
       <tr class="${r.verdict==='不合格'?'ng-row':''}">
         <td>${toYMD(r.date)}</td>
         <td>${r.machine||''}</td>
         <td>${r.partName||''}</td>
         <td>${r.model||''}</td>
-        <td style="color:#666;">${r.materialBatchR||'—'}</td>
-        <td style="color:#666;">${r.materialBatchL||'—'}</td>
-        <td style="color:#666;white-space:nowrap;">${nine9R}</td>
-        <td style="color:#666;white-space:nowrap;">${nine9L}</td>
+        <td style="color:#666;">${r.materialBatch9||'—'}</td>
+        <td style="color:#666;white-space:nowrap;">${nine9}</td>
         <td>${r.firstTime||''}</td>
         <td>${r.lastTime||''}</td>
         <td>${r.weight||''}</td>
@@ -2762,11 +2759,11 @@ function injRender(){
           <option value="待人工確認" ${injState.filterVerdict==='待人工確認'?'selected':''}>僅看待人工確認</option>
         </select>
       </div>
-      <div class="gauge-summary">顯示 ${filtered.length} / ${injState.rows.length} 筆(待人工確認的請點「編輯」對照備註內容補填；材料批號/9點量測值自動帶自生產工站檢驗記錄卡系統，唯讀不需填寫；點「查看9點資料」可直接彈窗看該筆9點時段的完整原始資料)</div>
+      <div class="gauge-summary">顯示 ${filtered.length} / ${injState.rows.length} 筆(待人工確認的請點「編輯」對照備註內容補填；材料批號/9點量測值自動依品名判斷R/L邊帶自生產工站檢驗記錄卡系統，唯讀不需填寫；點「查看9點資料」可直接彈窗看該筆9點時段的完整原始資料)</div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>日期</th><th>機台號</th><th>品名</th><th>模號</th><th>材料批號(R)</th><th>材料批號(L)</th><th>9點量測(R)</th><th>9點量測(L)</th><th>首件時間</th><th>末件時間</th><th>重量</th><th>密度</th><th>外觀</th><th>檢驗員</th><th>審查</th><th>判定</th><th>備註</th><th>操作</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="18" style="text-align:center;color:#999;padding:16px;">尚無資料</td></tr>'}</tbody>
+          <thead><tr><th>日期</th><th>機台號</th><th>品名</th><th>模號</th><th>材料批號</th><th>9點量測</th><th>首件時間</th><th>末件時間</th><th>重量</th><th>密度</th><th>外觀</th><th>檢驗員</th><th>審查</th><th>判定</th><th>備註</th><th>操作</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="16" style="text-align:center;color:#999;padding:16px;">尚無資料</td></tr>'}</tbody>
         </table>
       </div>
     </div>
@@ -2848,7 +2845,8 @@ async function injViewNineOClockDetail(i){
   try{
     const res = await injApiPost('getNineOClockDetail', {date:r.date, machine:r.machine, partName:r.partName||''});
     if(res && res.ok){
-      showDataModal('9點時段資料 - '+ (r.machine||'') +' '+ (r.partName||''), injBuildNineOClockHtml(res.rowsR||[], res.rowsL||[]));
+      const sideLabel = res.side==='L' ? 'L邊' : 'R邊';
+      showDataModal('9點時段資料('+sideLabel+') - '+ (r.machine||'') +' '+ (r.partName||''), injBuildNineOClockHtml(res.rows||[]));
     }else{
       showToast('❌ 查詢失敗:'+((res&&res.error)||'未知錯誤'));
     }
@@ -2857,31 +2855,23 @@ async function injViewNineOClockDetail(i){
   }
 }
 
-function injBuildNineOClockHtml(rowsR, rowsL){
-  function tbl(rows){
-    if(!rows || rows.length===0) return '<div class="small" style="color:#999;padding:8px 0;">無資料</div>';
-    const trs = rows.map(r=>`<tr>
-        <td>${r.timestamp||''}</td>
-        <td>${r.product||''}</td>
-        <td>${r.materialBatch||''}</td>
-        <td>${r.workOrder||''}</td>
-        <td>${r.startTime||''}~${r.endTime||''}</td>
-        <td>${r.densityCol||''}</td>
-        <td>${r.measureItem||''}</td>
-        <td>${r.measureValue||''}</td>
-        <td>${r.inspector||''} / ${r.reviewer||''}</td>
-      </tr>`).join('');
-    return `<div class="table-wrap"><table>
-      <thead><tr><th>登錄時間</th><th>品名</th><th>材料批號</th><th>工單號</th><th>時段</th><th>密度欄位</th><th>量測項目</th><th>量測值</th><th>檢驗/審查</th></tr></thead>
-      <tbody>${trs}</tbody>
-    </table></div>`;
-  }
-  return `
-    <div class="dash-section-title">射出站－R邊</div>
-    ${tbl(rowsR)}
-    <div class="dash-section-title" style="margin-top:16px;">射出站－L邊</div>
-    ${tbl(rowsL)}
-  `;
+function injBuildNineOClockHtml(rows){
+  if(!rows || rows.length===0) return '<div class="small" style="color:#999;padding:8px 0;">無資料</div>';
+  const trs = rows.map(r=>`<tr>
+      <td>${r.timestamp||''}</td>
+      <td>${r.product||''}</td>
+      <td>${r.materialBatch||''}</td>
+      <td>${r.workOrder||''}</td>
+      <td>${r.startTime||''}~${r.endTime||''}</td>
+      <td>${r.densityCol||''}</td>
+      <td>${r.measureItem||''}</td>
+      <td>${r.measureValue||''}</td>
+      <td>${r.inspector||''} / ${r.reviewer||''}</td>
+    </tr>`).join('');
+  return `<div class="table-wrap"><table>
+    <thead><tr><th>登錄時間</th><th>品名</th><th>材料批號</th><th>工單號</th><th>時段</th><th>密度欄位</th><th>量測項目</th><th>量測值</th><th>檢驗/審查</th></tr></thead>
+    <tbody>${trs}</tbody>
+  </table></div>`;
 }
 
 async function injSaveToCloud(){
