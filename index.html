@@ -669,6 +669,12 @@ function linkifyText(s){
   return esc.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">🔗 查看連結</a>');
 }
 
+// 通用：取得今天日期的 yyyy-MM-dd 格式(給 <input type="date"> 預設值用)
+function todayISO(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
 function toYMD(val){
   if(val===null || val===undefined || val==='') return '';
   if(val instanceof Date){
@@ -2757,6 +2763,11 @@ function injRender(){
         <h2 style="margin:0;">射出成形明細清單</h2>
         <button class="btn-ghost" onclick="injInit()">🔄 重新讀取雲端</button>
       </div>
+      <div class="gauge-filter-row" style="margin-bottom:8px;">
+        <input id="inj_importDate" type="date" value="${todayISO()}" style="max-width:170px;">
+        <button class="btn-primary" onclick="injImportByDate()">📥 從資料夾匯入該日資料</button>
+      </div>
+      <div class="small" style="color:#888;margin-bottom:12px;">選日期後按下匯入，會自動掃描生產工站檢驗記錄卡系統資料夾，把該天所有機台/品名建立成射出明細紀錄（已存在的不會重複匯入，判定會標記「待人工確認」，需人工複核外觀/品質後再更新判定）</div>
       <div class="gauge-filter-row">
         <input id="inj_filterText" placeholder="🔍 搜尋機台號／品名／模號..." value="${injState.filterText}" oninput="injSetFilter('filterText',this.value,event)" oncompositionend="injSetFilter('filterText',this.value)">
         <select onchange="injSetFilter('filterVerdict',this.value)">
@@ -2812,6 +2823,25 @@ function injReadForm(){
     verdict: document.getElementById('inj_verdict').value,
     remark: document.getElementById('inj_remark').value.trim(),
   };
+}
+
+async function injImportByDate(){
+  const dateEl = document.getElementById('inj_importDate');
+  const isoDate = dateEl ? dateEl.value : '';
+  if(!isoDate){ showToast('請先選擇日期'); return; }
+  const ymd = isoDate.split('-').join('/'); // yyyy-MM-dd -> yyyy/MM/dd
+  showToast('📥 匯入中，請稍候…（掃描資料夾可能需要一些時間）');
+  try{
+    const res = await injApiPost('importByDate', {date: ymd});
+    if(res && res.ok){
+      showToast('✅ 匯入完成：新增 '+res.imported+' 筆，略過 '+((res.skipped&&res.skipped.length)||0)+' 筆(已存在)');
+      await injInit();
+    }else{
+      showToast('❌ 匯入失敗:'+((res&&res.error)||'未知錯誤'));
+    }
+  }catch(err){
+    showToast('❌ 連線雲端失敗:'+err.message);
+  }
 }
 
 async function injSubmit(){
