@@ -2070,11 +2070,12 @@ function sinterRender(){
         <td>${escHtml(r.temp||'')}</td>
         <td>${escHtml(r.wo||'')}</td>
         <td>${escHtml(r.model||'')}</td>
-        <td><span class="iqc-verdict-pill ${r.verdict==='合格'?'ok':'ng'}">${r.verdict||''}</span></td>
+        <td><span class="iqc-verdict-pill ${r.verdict==='合格'?'ok':'ng'}" style="${r.verdict==='待人工確認'?'background:#fff4e0;color:var(--warn);':''}">${r.verdict||''}</span></td>
         <td title="${escHtml(r.remark||'')}">${escHtml(remarkShort)}</td>
         <td style="white-space:nowrap;">
           <button class="gauge-edit-btn" onclick="sinterEdit(${i})">✏ 編輯</button>
-          <button class="gauge-del-btn" onclick="sinterDelete(${i})">🗑 刪除</button>
+          <button class="gauge-del-btn" onclick="sinterDelete(${i})">🗑 刪除</button><br>
+          <button class="btn-ghost" style="margin-top:4px;font-size:12px;padding:3px 8px;" onclick="sinterViewDetail(${i})">🔍 查看明細</button>
         </td>
       </tr>`;
   }).join('');
@@ -2086,12 +2087,18 @@ function sinterRender(){
         <h2 style="margin:0;">燒結明細清單</h2>
         <button class="btn-ghost" onclick="sinterInit()">🔄 重新讀取雲端</button>
       </div>
+      <div class="gauge-filter-row" style="margin-bottom:8px;">
+        <input id="sinter_importDate" type="date" value="${todayISO()}" style="max-width:170px;">
+        <button class="btn-primary" onclick="sinterImportByDate()">📥 從資料夾匯入該日資料</button>
+      </div>
+      <div class="small" style="color:#888;margin-bottom:12px;">選日期後按下匯入，會自動掃描生產工站檢驗記錄卡系統資料夾，把該天所有爐次建立成燒結明細紀錄（已存在的不會重複匯入，判定會標記「待人工確認」，需人工複核後再更新判定）</div>
       <div class="gauge-filter-row">
         <input id="sinter_filterText" placeholder="🔍 搜尋工單號／模號／爐號..." value="${sinterState.filterText}" oninput="sinterSetFilter('filterText',this.value,event)" oncompositionend="sinterSetFilter('filterText',this.value)">
         <select onchange="sinterSetFilter('filterVerdict',this.value)">
           <option value="all" ${sinterState.filterVerdict==='all'?'selected':''}>全部</option>
           <option value="合格" ${sinterState.filterVerdict==='合格'?'selected':''}>僅看合格</option>
           <option value="不合格" ${sinterState.filterVerdict==='不合格'?'selected':''}>僅看不合格</option>
+          <option value="待人工確認" ${sinterState.filterVerdict==='待人工確認'?'selected':''}>僅看待人工確認</option>
         </select>
       </div>
       <div class="gauge-summary">顯示 ${filtered.length} / ${sinterState.rows.length} 筆</div>
@@ -2103,6 +2110,68 @@ function sinterRender(){
       </div>
     </div>
   `;
+}
+
+async function sinterImportByDate(){
+  const dateEl = document.getElementById('sinter_importDate');
+  const isoDate = dateEl ? dateEl.value : '';
+  if(!isoDate){ showToast('請先選擇日期'); return; }
+  const ymd = isoDate.split('-').join('/');
+  showToast('📥 匯入中，請稍候…（掃描資料夾可能需要一些時間）');
+  try{
+    const res = await sinterApiPost('importByDate', {date: ymd});
+    if(res && res.ok){
+      showToast('✅ 匯入完成：新增 '+res.imported+' 筆，略過 '+((res.skipped&&res.skipped.length)||0)+' 筆(已存在)');
+      await sinterInit();
+    }else{
+      showToast('❌ 匯入失敗:'+((res&&res.error)||'未知錯誤'));
+    }
+  }catch(err){
+    showToast('❌ 連線雲端失敗:'+err.message);
+  }
+}
+
+async function sinterViewDetail(i){
+  const r = sinterState.rows[i];
+  if(!r){ showToast('❌ 找不到這筆紀錄'); return; }
+  if(!r.date || !r.furnace){ showToast('⚠️ 這筆紀錄缺少日期或爐號，無法查詢來源資料'); return; }
+  showToast('🔍 查詢中…');
+  try{
+    const res = await sinterApiPost('getSinterDetail', {date:r.date, furnace:r.furnace});
+    if(res && res.ok){
+      showDataModal('燒結量測明細 - 爐號'+ (r.furnace||'') +' '+ (r.model||''), sinterBuildDetailHtml(res.rows||[]));
+    }else{
+      showToast('❌ 查詢失敗:'+((res&&res.error)||'未知錯誤'));
+    }
+  }catch(err){
+    showToast('❌ 連線雲端失敗:'+err.message);
+  }
+}
+
+function sinterBuildDetailHtml(rows){
+  if(!rows || rows.length===0) return '<div class="small" style="color:#999;padding:8px 0;">無資料</div>';
+  const first = rows[0];
+  const summary = `
+    <div class="small" style="margin-bottom:10px;line-height:1.8;">
+      品名：${escHtml(first.product)}　工單號：${escHtml(first.workOrder)}<br>
+      硬度R：${escHtml(first.hardnessR)}　硬度L：${escHtml(first.hardnessL)}　密度R：${escHtml(first.densityR)}　密度L：${escHtml(first.densityL)}<br>
+      孔洞結果：${escHtml(first.holeResult)}　外觀結果：${escHtml(first.appearanceResult)}<br>
+      檢驗員：${escHtml(first.inspector)}　審查：${escHtml(first.reviewer)}
+    </div>`;
+  const trs = rows.map(r=>`<tr>
+      <td>${escHtml(r.item)}</td>
+      <td>${escHtml(r.cavity)}</td>
+      <td>${escHtml(r.side)}</td>
+      <td>${escHtml(r.pieces1)}</td>
+      <td>${escHtml(r.pieces2)}</td>
+      <td>${escHtml(r.pieces3)}</td>
+      <td>${escHtml(r.pieces4)}</td>
+      <td>${escHtml(r.pieces5)}</td>
+    </tr>`).join('');
+  return summary + `<div class="table-wrap"><table>
+    <thead><tr><th>量測項目</th><th>穴位</th><th>邊別</th><th>抽1</th><th>抽2</th><th>抽3</th><th>抽4</th><th>抽5</th></tr></thead>
+    <tbody>${trs}</tbody>
+  </table></div>`;
 }
 
 function sinterSetFilter(key, val, evt){
