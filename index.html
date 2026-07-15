@@ -2154,7 +2154,9 @@ function sinterBuildDetailHtml(rows){
   const summary = `
     <div class="small" style="margin-bottom:10px;line-height:1.8;">
       品名：${escHtml(first.product)}　工單號：${escHtml(first.workOrder)}<br>
-      硬度R：${escHtml(first.hardnessR)}　硬度L：${escHtml(first.hardnessL)}　密度R：${escHtml(first.densityR)}　密度L：${escHtml(first.densityL)}<br>
+      硬度R：${escHtml(first.hardnessR)}　硬度L：${escHtml(first.hardnessL)}<br>
+      密度R：${escHtml(first.densityR)}　密度L：${escHtml(first.densityL)}<br>
+      碳含量R：${escHtml(first.carbonR)}　碳含量L：${escHtml(first.carbonL)}<br>
       孔洞結果：${escHtml(first.holeResult)}　外觀結果：${escHtml(first.appearanceResult)}<br>
       檢驗員：${escHtml(first.inspector)}　審查：${escHtml(first.reviewer)}
     </div>`;
