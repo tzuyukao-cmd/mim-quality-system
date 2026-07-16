@@ -425,6 +425,20 @@ blastPanel.id = 'panel-blasting';
 blastPanel.innerHTML = '<div id="blastRoot"></div>';
 panelsContainer.appendChild(blastPanel);
 
+/* 自製整形專屬頁籤 */
+const reshapeBtn = document.createElement('button');
+reshapeBtn.className = 'tab-btn';
+reshapeBtn.textContent = '自製整形';
+reshapeBtn.id = 'tabbtn-reshape';
+reshapeBtn.onclick = ()=>switchTab('reshape');
+tabsBar.appendChild(reshapeBtn);
+
+const reshapePanel = document.createElement('section');
+reshapePanel.className = 'panel';
+reshapePanel.id = 'panel-reshape';
+reshapePanel.innerHTML = '<div id="reshapeRoot"></div>';
+panelsContainer.appendChild(reshapePanel);
+
 /* 儀表板專屬頁籤(放在最後一個分頁) */
 const dashBtn = document.createElement('button');
 dashBtn.className = 'tab-btn';
@@ -3496,6 +3510,227 @@ async function blastSaveToCloud(){
 }
 
 blastInit();
+
+/* ===================== 自製整形邏輯,串接雲端 Apps Script ===================== */
+// ★★★ 請把下面這個網址換成你部署「自製整形」Apps Script 後才會拿到的網址 ★★★
+const RESHAPE_API_URL = '請貼上你的自製整形Apps_Script部署網址';
+
+const RESHAPE_RESULT_OPTIONS = ['OK','NG'];
+
+let reshapeState = {
+  rows: [],
+  loaded: false,
+  editIndex: null,
+  filterText: '',
+  filterResult: 'all',
+};
+
+async function reshapeApiGet(params){
+  const res = await fetch(RESHAPE_API_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain;charset=utf-8'},
+    body: JSON.stringify({action: params.action, payload: params})
+  });
+  return res.json();
+}
+async function reshapeApiPost(action, payload){
+  const res = await fetch(RESHAPE_API_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify({action, payload})
+  });
+  return res.json();
+}
+
+function reshapeTodayISO(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function reshapeToInputDate(val){
+  if(!val) return reshapeTodayISO();
+  const s = String(val).trim().replace(/\//g,'-');
+  const parts = s.split('-');
+  if(parts.length===3){
+    const y = parts[0].padStart(4,'0'), m = parts[1].padStart(2,'0'), d = parts[2].padStart(2,'0');
+    return `${y}-${m}-${d}`;
+  }
+  return reshapeTodayISO();
+}
+
+async function reshapeInit(silent=false){
+  const root = document.getElementById('reshapeRoot');
+  if(!silent) root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
+  try{
+    const res = await reshapeApiGet({action:'getData'});
+    reshapeState.rows = (res && res.ok && Array.isArray(res.data)) ? res.data : [];
+    reshapeState.loaded = true;
+  }catch(err){
+    root.innerHTML = `<div class="card"><div class="small" style="padding:20px;color:var(--bad);">讀取雲端失敗:${err.message}<br><button class="btn-ghost" style="margin-top:10px;" onclick="reshapeInit()">重試</button></div></div>`;
+    return;
+  }
+  if(!silent) reshapeRender();
+}
+
+function reshapeRender(){
+  const root = document.getElementById('reshapeRoot');
+  const editing = reshapeState.editIndex!==null;
+  const rec = editing ? reshapeState.rows[reshapeState.editIndex] : {};
+
+  const formHTML = `
+    <div class="card">
+      <h2 style="margin:0 0 4px;">🛠️ 自製整形紀錄</h2>
+      <div class="sub" style="margin-bottom:12px;">${editing?'編輯第 '+(reshapeState.editIndex+1)+' 筆紀錄':'新增自製整形紀錄'}</div>
+      <div class="grid">
+        <div><label>生產日期</label><input type="date" id="reshape_date" value="${editing?reshapeToInputDate(rec.date):reshapeTodayISO()}"></div>
+        <div><label>批號/工單</label><input id="reshape_wo" value="${escHtml(rec.wo||'')}" placeholder="如: JM1E-26-06-164"></div>
+        <div><label>產品/料號</label><input id="reshape_partName" value="${escHtml(rec.partName||'')}" placeholder="如: Z840 R/A"></div>
+        <div><label>整形機台</label><input id="reshape_machine" value="${escHtml(rec.machine||'')}" placeholder="如: 201"></div>
+        <div><label>整形站別</label><input id="reshape_station" value="${escHtml(rec.station||'')}" placeholder="如: 整形一站"></div>
+        <div><label>數量</label><input id="reshape_qty" value="${escHtml(rec.qty||'')}" placeholder="如: 200"></div>
+        <div><label>操作員</label><input id="reshape_inspector" value="${escHtml(rec.inspector||'')}" placeholder="整形操作員"></div>
+        <div><label>判定</label>
+          <select id="reshape_result">${RESHAPE_RESULT_OPTIONS.map(o=>`<option value="${o}" ${rec.result===o?'selected':''}>${o}</option>`).join('')}</select>
+        </div>
+        <div class="full"><label>備註</label><textarea id="reshape_note" placeholder="備註">${escHtml(rec.note||'')}</textarea></div>
+      </div>
+      <div class="actions">
+        <button class="btn-primary" onclick="reshapeSubmit()">${editing?'💾 儲存修改':'➕ 新增至清單'}</button>
+        ${editing?'<button class="btn-ghost" onclick="reshapeCancelEdit()">取消編輯</button>':''}
+      </div>
+    </div>`;
+
+  const filtered = reshapeState.rows.filter(r=>{
+    if(reshapeState.filterResult!=='all' && r.result!==reshapeState.filterResult) return false;
+    if(reshapeState.filterText){
+      const f = _normSearch(reshapeState.filterText);
+      const hay = _normSearch([r.wo,r.partName,r.machine,r.station,r.inspector,r.note].join(' '));
+      if(!hay.includes(f)) return false;
+    }
+    return true;
+  });
+
+  const rows = filtered.map(r=>{
+    const i = reshapeState.rows.indexOf(r);
+    return `
+      <tr class="${r.result==='NG'?'ng-row':''}">
+        <td>${toYMD(r.date)}</td>
+        <td>${escHtml(r.wo||'')}</td>
+        <td>${escHtml(r.partName||'')}</td>
+        <td>${escHtml(r.machine||'')}</td>
+        <td>${escHtml(r.station||'')}</td>
+        <td>${escHtml(r.qty||'')}</td>
+        <td>${escHtml(r.inspector||'')}</td>
+        <td><span class="iqc-verdict-pill ${r.result==='OK'?'ok':'ng'}">${r.result||''}</span></td>
+        <td>${escHtml(r.note||'')}</td>
+        <td style="white-space:nowrap;">
+          <button class="gauge-edit-btn" onclick="reshapeEdit(${i})">✏ 編輯</button>
+          <button class="gauge-del-btn" onclick="reshapeDelete(${i})">🗑 刪除</button>
+        </td>
+      </tr>`;
+  }).join('');
+
+  root.innerHTML = `
+    ${formHTML}
+    <div class="card">
+      <div class="toprow">
+        <h2 style="margin:0;">自製整形明細清單</h2>
+        <button class="btn-ghost" onclick="reshapeInit()">🔄 重新讀取雲端</button>
+      </div>
+      <div class="gauge-filter-row">
+        <input id="reshape_filterText" placeholder="🔍 搜尋批號/工單／料號／機台／站別／備註..." value="${reshapeState.filterText}" oninput="reshapeSetFilter('filterText',this.value,event)" oncompositionend="reshapeSetFilter('filterText',this.value)">
+        <select onchange="reshapeSetFilter('filterResult',this.value)">
+          <option value="all" ${reshapeState.filterResult==='all'?'selected':''}>全部</option>
+          <option value="OK" ${reshapeState.filterResult==='OK'?'selected':''}>僅看OK</option>
+          <option value="NG" ${reshapeState.filterResult==='NG'?'selected':''}>僅看NG</option>
+        </select>
+      </div>
+      <div class="gauge-summary">顯示 ${filtered.length} / ${reshapeState.rows.length} 筆</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>生產日期</th><th>批號/工單</th><th>產品/料號</th><th>整形機台</th><th>整形站別</th><th>數量</th><th>操作員</th><th>判定</th><th>備註</th><th>操作</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="10" style="text-align:center;color:#999;padding:16px;">尚無資料</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function reshapeSetFilter(key, val, evt){
+  reshapeState[key] = val;
+  if(evt && evt.isComposing) return; // 輸入法組字中，先不重新渲染，避免打斷組字造成重複字
+  const active = document.activeElement;
+  const activeId = active && active.id;
+  const selStart = active && typeof active.selectionStart === 'number' ? active.selectionStart : null;
+  const selEnd = active && typeof active.selectionEnd === 'number' ? active.selectionEnd : null;
+  reshapeRender();
+  if(activeId){
+    const el = document.getElementById(activeId);
+    if(el){
+      el.focus();
+      if(selStart !== null && el.setSelectionRange){
+        el.setSelectionRange(selStart, selEnd !== null ? selEnd : selStart);
+      }
+    }
+  }
+}
+
+function reshapeReadForm(){
+  return {
+    date: (document.getElementById('reshape_date').value||'').replace(/-/g,'/'),
+    wo: document.getElementById('reshape_wo').value.trim(),
+    partName: document.getElementById('reshape_partName').value.trim(),
+    machine: document.getElementById('reshape_machine').value.trim(),
+    station: document.getElementById('reshape_station').value.trim(),
+    qty: document.getElementById('reshape_qty').value.trim(),
+    inspector: document.getElementById('reshape_inspector').value.trim(),
+    result: document.getElementById('reshape_result').value,
+    note: document.getElementById('reshape_note').value.trim(),
+  };
+}
+
+async function reshapeSubmit(){
+  const form = reshapeReadForm();
+  if(!form.wo && !form.partName){ showToast('請至少輸入工單號或料號/品名'); return; }
+
+  if(reshapeState.editIndex!==null){
+    Object.assign(reshapeState.rows[reshapeState.editIndex], form);
+  } else {
+    reshapeState.rows.push(form);
+  }
+  await reshapeSaveToCloud();
+  reshapeState.editIndex = null;
+  reshapeRender();
+}
+
+function reshapeEdit(i){
+  reshapeState.editIndex = i;
+  reshapeRender();
+  document.getElementById('reshapeRoot').scrollIntoView({behavior:'smooth'});
+}
+function reshapeCancelEdit(){
+  reshapeState.editIndex = null;
+  reshapeRender();
+}
+async function reshapeDelete(i){
+  if(!confirm('確定刪除這筆自製整形紀錄?')) return;
+  reshapeState.rows.splice(i,1);
+  await reshapeSaveToCloud();
+  reshapeRender();
+}
+
+async function reshapeSaveToCloud(){
+  if(!reshapeState.rows || reshapeState.rows.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return; }
+  showToast('儲存中…');
+  try{
+    const res = await reshapeApiPost('saveData', reshapeState.rows);
+    if(res && res.ok){ showToast('✅ 已儲存至雲端('+res.count+' 筆)'); }
+    else{ showToast('❌ 儲存失敗:'+((res&&res.error)||'未知錯誤')); }
+  }catch(err){
+    showToast('❌ 連線雲端失敗:'+err.message);
+  }
+}
+
+reshapeInit();
 </script>
 </body>
 </html>
