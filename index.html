@@ -598,6 +598,9 @@ function getAllModuleAccessors(){
     blasting: { getData: ()=>({ rows: blastState.rows||[] }),
                 setData: (d)=>{ blastState.rows = d.rows||[]; },
                 save: blastSaveToCloud, render: blastRender },
+    reshape:  { getData: ()=>({ rows: reshapeState.rows||[] }),
+                setData: (d)=>{ reshapeState.rows = d.rows||[]; },
+                save: reshapeSaveToCloud, render: reshapeRender },
   };
 }
 
