@@ -2865,10 +2865,10 @@ function injRender(){
           <option value="待人工確認" ${injState.filterVerdict==='待人工確認'?'selected':''}>僅看待人工確認</option>
         </select>
       </div>
-      <div class="gauge-summary">顯示 ${filtered.length} / ${injState.rows.length} 筆(待人工確認的請點「編輯」對照備註內容補填；材料批號/9點量測值自動依品名判斷R/L邊帶自生產工站檢驗記錄卡系統，唯讀不需填寫；點「查看9點資料」可直接彈窗看該筆9點時段的完整原始資料)</div>
+      <div class="gauge-summary">顯示 ${filtered.length} / ${injState.rows.length} 筆(待人工確認的請點「編輯」對照備註內容補填；材料批號/密度重量參考自動依品名判斷R/L邊、日班夜班帶自生產工站檢驗記錄卡系統(取該班別第一列數值)，唯讀不需填寫；點「查看9點資料」可直接彈窗看該筆9點時段的完整原始資料)</div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>日期</th><th>機台號</th><th>品名</th><th>模號</th><th>材料批號</th><th>9點量測</th><th>首件時間</th><th>末件時間</th><th>重量</th><th>密度</th><th>外觀</th><th>檢驗員</th><th>審查</th><th>判定</th><th>備註</th><th>操作</th></tr></thead>
+          <thead><tr><th>日期</th><th>機台號</th><th>品名</th><th>模號</th><th>材料批號</th><th>密度/重量參考</th><th>首件時間</th><th>末件時間</th><th>重量</th><th>密度</th><th>外觀</th><th>檢驗員</th><th>審查</th><th>判定</th><th>備註</th><th>操作</th></tr></thead>
           <tbody>${rows || '<tr><td colspan="16" style="text-align:center;color:#999;padding:16px;">尚無資料</td></tr>'}</tbody>
         </table>
       </div>
