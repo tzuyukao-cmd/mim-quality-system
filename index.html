@@ -2968,7 +2968,7 @@ async function injViewNineOClockDetail(i){
   if(!r.date || !r.machine){ showToast('⚠️ 這筆紀錄缺少日期或機台號，無法查詢來源資料'); return; }
   showToast('🔍 查詢中…');
   try{
-    const res = await injApiPost('getNineOClockDetail', {date:r.date, machine:r.machine, partName:r.partName||''});
+    const res = await injApiPost('getNineOClockDetail', {date:r.date, machine:r.machine, partName:r.partName||'', firstTime:r.firstTime||''});
     if(res && res.ok){
       const sideLabel = res.side==='L' ? 'L邊' : 'R邊';
       showDataModal('9點時段資料('+sideLabel+') - '+ (r.machine||'') +' '+ (r.partName||''), injBuildNineOClockHtml(res.rows||[]));
