@@ -2987,12 +2987,13 @@ function injBuildNineOClockHtml(rows){
       <td>${escHtml(r.workOrder||'')}</td>
       <td>${r.startTime||''}~${r.endTime||''}</td>
       <td>${escHtml(r.densityCol||'')}</td>
+      <td>${escHtml(r.appearance||'')}</td>
       <td>${escHtml(r.measureItem||'')}</td>
       <td>${escHtml(r.measureValue||'')}</td>
-      <td>${r.inspector||''} / ${r.reviewer||''}</td>
+      <td>${escHtml(r.inspector||'')} / ${escHtml(r.reviewer||'')}</td>
     </tr>`).join('');
   return `<div class="table-wrap"><table>
-    <thead><tr><th>登錄時間</th><th>品名</th><th>材料批號</th><th>工單號</th><th>時段</th><th>密度欄位</th><th>量測項目</th><th>量測值</th><th>檢驗/審查</th></tr></thead>
+    <thead><tr><th>登錄時間</th><th>品名</th><th>材料批號</th><th>工單號</th><th>時段</th><th>密度欄位</th><th>外觀</th><th>量測項目</th><th>量測值</th><th>檢驗/審查</th></tr></thead>
     <tbody>${trs}</tbody>
   </table></div>`;
 }
