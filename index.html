@@ -2571,8 +2571,65 @@ function dashRenderMain(){
 
       ${dashRenderVendorReturn(dashState.period)}
       ${dashRenderFqcDetail(dashState.period)}
+      ${dashRenderIqcWeeklyTrend(8)}
     </div>
   `;
+}
+
+// 計算最近N週(含本週)每週的進料檢驗統計，週一為每週起始
+function dashComputeIqcWeeklyTrend(numWeeks){
+  const rows = (typeof iqcState!=='undefined' ? (iqcState.rows||[]) : []) || [];
+  const now = new Date();
+  const day = now.getDay();
+  const diffToMonday = (day===0?6:day-1);
+  const thisMonday = new Date(now); thisMonday.setDate(now.getDate()-diffToMonday); thisMonday.setHours(0,0,0,0);
+
+  const weeks = [];
+  for(let i=numWeeks-1; i>=0; i--){
+    const monday = new Date(thisMonday); monday.setDate(thisMonday.getDate()-i*7);
+    const sunday = new Date(monday); sunday.setDate(monday.getDate()+6); sunday.setHours(23,59,59,999);
+    weeks.push({monday, sunday});
+  }
+
+  return weeks.map(w=>{
+    const inWeek = rows.filter(r=>{
+      const d = dashParseDate(r.date);
+      return d && d>=w.monday && d<=w.sunday;
+    });
+    const total = inWeek.length;
+    const ng = inWeek.filter(r=>r.verdict==='NG').length;
+    const sp = inWeek.filter(r=>r.verdict==='特採').length;
+    const ok = total - ng - sp;
+    const ngRate = total>0 ? (ng/total*100) : null;
+    return { monday: w.monday, sunday: w.sunday, total, ok, ng, sp, ngRate };
+  });
+}
+
+function dashRenderIqcWeeklyTrend(numWeeks){
+  const weekly = dashComputeIqcWeeklyTrend(numWeeks);
+  const fmtD = d => (d.getMonth()+1)+'/'+d.getDate();
+
+  const rows = weekly.map(w=>{
+    const rateText = w.total>0 ? w.ngRate.toFixed(1)+'%' : '—';
+    const rateColor = w.total===0 ? '#999' : (w.ngRate>=3 ? 'var(--bad)' : 'var(--ok)');
+    return `<tr>
+      <td>${fmtD(w.monday)} ~ ${fmtD(w.sunday)}</td>
+      <td>${w.total}</td>
+      <td>${w.ok}</td>
+      <td>${w.ng}</td>
+      <td>${w.sp}</td>
+      <td style="color:${rateColor};font-weight:600;">${rateText}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="dash-section-title" style="margin-top:20px;">📈 進料檢驗(IQC) 近${numWeeks}週趨勢</div>
+    <div class="table-wrap">
+      <table class="dash-module-table">
+        <thead><tr><th>週別</th><th>總筆數</th><th>合格</th><th>NG</th><th>特採</th><th>NG率</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }
 
 function dashRenderFqcDetail(period){
