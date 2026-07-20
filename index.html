@@ -2969,7 +2969,9 @@ async function injViewNineOClockDetail(i){
     const res = await injApiPost('getNineOClockDetail', {date:r.date, machine:r.machine, partName:r.partName||'', firstTime:r.firstTime||''});
     if(res && res.ok){
       const sideLabel = res.side==='L' ? 'L邊' : 'R邊';
-      showDataModal('9點時段資料('+sideLabel+') - '+ (r.machine||'') +' '+ (r.partName||''), injBuildNineOClockHtml(res.rows||[]));
+      const shiftLabel = res.shift==='night' ? '夜班' : '日班';
+      const titlePrefix = res.shift==='night' ? '完整資料' : '9點時段資料';
+      showDataModal(titlePrefix+'('+sideLabel+shiftLabel+') - '+ (r.machine||'') +' '+ (r.partName||''), injBuildNineOClockHtml(res.rows||[]));
     }else{
       showToast('❌ 查詢失敗:'+((res&&res.error)||'未知錯誤'));
     }
