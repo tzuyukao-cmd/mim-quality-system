@@ -3650,6 +3650,7 @@ function reshapeRender(){
         <div><label>整形站別</label><input id="reshape_station" value="${escHtml(rec.station||'')}" placeholder="如: 整形一站"></div>
         <div><label>數量</label><input id="reshape_qty" value="${escHtml(rec.qty||'')}" placeholder="如: 200"></div>
         <div><label>操作員</label><input id="reshape_inspector" value="${escHtml(rec.inspector||'')}" placeholder="整形操作員"></div>
+        <div><label>抽驗時間</label><input type="time" id="reshape_inspectTime" value="${escHtml(rec.inspectTime||'')}"></div>
         <div><label>判定</label>
           <select id="reshape_result">${RESHAPE_RESULT_OPTIONS.map(o=>`<option value="${o}" ${rec.result===o?'selected':''}>${o}</option>`).join('')}</select>
         </div>
@@ -3682,6 +3683,7 @@ function reshapeRender(){
         <td>${escHtml(r.station||'')}</td>
         <td>${escHtml(r.qty||'')}</td>
         <td>${escHtml(r.inspector||'')}</td>
+        <td>${escHtml(r.inspectTime||'')}</td>
         <td><span class="iqc-verdict-pill ${r.result==='OK'?'ok':'ng'}">${r.result||''}</span></td>
         <td>${escHtml(r.note||'')}</td>
         <td style="white-space:nowrap;">
@@ -3709,8 +3711,8 @@ function reshapeRender(){
       <div class="gauge-summary">顯示 ${filtered.length} / ${reshapeState.rows.length} 筆</div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>生產日期</th><th>批號/工單</th><th>產品/料號</th><th>整形機台</th><th>整形站別</th><th>數量</th><th>操作員</th><th>判定</th><th>備註</th><th>操作</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="10" style="text-align:center;color:#999;padding:16px;">尚無資料</td></tr>'}</tbody>
+          <thead><tr><th>生產日期</th><th>批號/工單</th><th>產品/料號</th><th>整形機台</th><th>整形站別</th><th>數量</th><th>操作員</th><th>抽驗時間</th><th>判定</th><th>備註</th><th>操作</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="11" style="text-align:center;color:#999;padding:16px;">尚無資料</td></tr>'}</tbody>
         </table>
       </div>
     </div>
@@ -3745,6 +3747,7 @@ function reshapeReadForm(){
     station: document.getElementById('reshape_station').value.trim(),
     qty: document.getElementById('reshape_qty').value.trim(),
     inspector: document.getElementById('reshape_inspector').value.trim(),
+    inspectTime: document.getElementById('reshape_inspectTime').value,
     result: document.getElementById('reshape_result').value,
     note: document.getElementById('reshape_note').value.trim(),
   };
