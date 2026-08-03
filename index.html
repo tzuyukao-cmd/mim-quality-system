@@ -1484,6 +1484,34 @@ async function iqcImportByDate(){
   }
 }
 
+async function iqcViewDetail(i){
+  const r = iqcState.rows[i];
+  if(!r){ showToast('❌ 找不到這筆紀錄'); return; }
+  if(!r.date || !r.wo){ showToast('⚠️ 這筆紀錄缺少日期或工單號，無法查詢來源資料'); return; }
+  showToast('🔍 查詢中…');
+  try{
+    const res = await iqcApiPost('getIqcDetail', {date:r.date, wo:r.wo});
+    if(res && res.ok){
+      showDataModal('尺寸量測明細 - '+ (r.wo||'') +' '+ (r.partName||''), iqcBuildDetailHtml(res.grid||[]));
+    }else{
+      showToast('❌ 查詢失敗:'+((res&&res.error)||'未知錯誤'));
+    }
+  }catch(err){
+    showToast('❌ 連線雲端失敗:'+err.message);
+  }
+}
+
+function iqcBuildDetailHtml(grid){
+  if(!grid || grid.length===0) return '<div class="small" style="color:#999;padding:8px 0;">無資料</div>';
+  const trs = grid.map(row=>`<tr>${row.map(cell=>{
+    const isNG = String(cell).trim().toUpperCase()==='NG';
+    return `<td style="${isNG?'background:#ffe0e0;color:var(--bad);font-weight:700;':''}">${escHtml(cell)}</td>`;
+  }).join('')}</tr>`).join('');
+  return `<div class="table-wrap" style="max-height:70vh;overflow:auto;"><table>
+    <tbody>${trs}</tbody>
+  </table></div>`;
+}
+
 async function iqcInit(silent=false){
   const root = document.getElementById('iqcRoot');
   if(!silent) root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
@@ -1579,7 +1607,8 @@ function iqcRender(){
         <td>${escHtml(r.remark||'—')}</td>
         <td style="white-space:nowrap;">
           <button class="gauge-edit-btn" onclick="iqcEdit(${i})">✏ 編輯</button>
-          <button class="gauge-del-btn" onclick="iqcDelete(${i})">🗑 刪除</button>
+          <button class="gauge-del-btn" onclick="iqcDelete(${i})">🗑 刪除</button><br>
+          <button class="btn-ghost" style="margin-top:4px;font-size:12px;padding:3px 8px;" onclick="iqcViewDetail(${i})">🔍 查看明細</button>
         </td>
       </tr>`;
   }).join('');
