@@ -1465,6 +1465,25 @@ function iqcTodayDisplay(){
   return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0');
 }
 
+async function iqcImportByDate(){
+  const dateEl = document.getElementById('iqc_importDate');
+  const isoDate = dateEl ? dateEl.value : '';
+  if(!isoDate){ showToast('請先選擇日期'); return; }
+  const ymd = isoDate.split('-').join('/');
+  showToast('📥 匯入中，請稍候…（掃描資料夾可能需要一些時間）');
+  try{
+    const res = await iqcApiPost('importByDate', {date: ymd});
+    if(res && res.ok){
+      showToast('✅ 匯入完成：新增 '+res.imported+' 筆，略過 '+((res.skipped&&res.skipped.length)||0)+' 筆(已存在)');
+      await iqcInit();
+    }else{
+      showToast('❌ 匯入失敗:'+((res&&res.error)||'未知錯誤'));
+    }
+  }catch(err){
+    showToast('❌ 連線雲端失敗:'+err.message);
+  }
+}
+
 async function iqcInit(silent=false){
   const root = document.getElementById('iqcRoot');
   if(!silent) root.innerHTML = `<div class="card"><div class="small" style="padding:20px;text-align:center;">讀取雲端資料中…</div></div>`;
@@ -1572,6 +1591,11 @@ function iqcRender(){
         <h2 style="margin:0;">進料檢驗明細清單<span class="vi">Danh sách chi tiết kiểm tra nguyên liệu</span></h2>
         <button class="btn-ghost" onclick="iqcInit()">🔄 重新讀取雲端 / Tải lại từ Cloud</button>
       </div>
+      <div class="gauge-filter-row" style="margin-bottom:8px;">
+        <input id="iqc_importDate" type="date" value="${todayISO()}" style="max-width:170px;">
+        <button class="btn-primary" onclick="iqcImportByDate()">📥 從資料夾匯入該日P885/銘翰資料</button>
+      </div>
+      <div class="small" style="color:#888;margin-bottom:12px;">選日期後按下匯入，會自動掃描整形銘翰站資料夾，把該天所有品項(P885 L/R等)建立成進料檢驗紀錄（已存在的工單號不會重複匯入；判定依表單內有無NG自動判斷）</div>
       <div class="gauge-filter-row">
         <input id="iqc_filterText" placeholder="🔍 搜尋工單號／廠商／品名／出爐日期／備註... / Tìm số lệnh／NCC／ghi chú" value="${iqcState.filterText}" oninput="iqcSetFilter('filterText',this.value,event)" oncompositionend="iqcSetFilter('filterText',this.value)">
         <select onchange="iqcSetFilter('filterVerdict',this.value)">
