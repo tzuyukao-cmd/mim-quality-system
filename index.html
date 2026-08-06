@@ -3737,11 +3737,12 @@ function reshapeRender(){
         <td>${escHtml(r.qty||'')}</td>
         <td>${escHtml(r.inspector||'')}</td>
         <td>${escHtml(r.inspectTime||'')}</td>
-        <td><span class="iqc-verdict-pill ${r.result==='OK'?'ok':'ng'}">${r.result||''}</span></td>
+        <td><span class="iqc-verdict-pill ${r.result==='OK'?'ok':(r.result==='NG'?'ng':'')}" style="${r.result==='待人工確認'?'background:#fff4e0;color:var(--warn);':''}">${r.result||''}</span></td>
         <td>${escHtml(r.note||'')}</td>
         <td style="white-space:nowrap;">
           <button class="gauge-edit-btn" onclick="reshapeEdit(${i})">✏ 編輯</button>
-          <button class="gauge-del-btn" onclick="reshapeDelete(${i})">🗑 刪除</button>
+          <button class="gauge-del-btn" onclick="reshapeDelete(${i})">🗑 刪除</button><br>
+          <button class="btn-ghost" style="margin-top:4px;font-size:12px;padding:3px 8px;" onclick="reshapeViewDetail(${i})">🔍 查看明細</button>
         </td>
       </tr>`;
   }).join('');
@@ -3753,12 +3754,18 @@ function reshapeRender(){
         <h2 style="margin:0;">自製整形明細清單</h2>
         <button class="btn-ghost" onclick="reshapeInit()">🔄 重新讀取雲端</button>
       </div>
+      <div class="gauge-filter-row" style="margin-bottom:8px;">
+        <input id="reshape_importDate" type="date" value="${todayISO()}" style="max-width:170px;">
+        <button class="btn-primary" onclick="reshapeImportByDate()">📥 從資料夾匯入該日資料</button>
+      </div>
+      <div class="small" style="color:#888;margin-bottom:12px;">選日期後按下匯入，會自動掃描生產工站檢驗記錄卡系統資料夾，把該天所有整形機台/站別建立成自製整形明細紀錄（已存在的不會重複匯入，判定會標記「待人工確認」，需人工複核後再更新判定）</div>
       <div class="gauge-filter-row">
         <input id="reshape_filterText" placeholder="🔍 搜尋批號/工單／料號／機台／站別／備註..." value="${reshapeState.filterText}" oninput="reshapeSetFilter('filterText',this.value,event)" oncompositionend="reshapeSetFilter('filterText',this.value)">
         <select onchange="reshapeSetFilter('filterResult',this.value)">
           <option value="all" ${reshapeState.filterResult==='all'?'selected':''}>全部</option>
           <option value="OK" ${reshapeState.filterResult==='OK'?'selected':''}>僅看OK</option>
           <option value="NG" ${reshapeState.filterResult==='NG'?'selected':''}>僅看NG</option>
+          <option value="待人工確認" ${reshapeState.filterResult==='待人工確認'?'selected':''}>僅看待人工確認</option>
         </select>
       </div>
       <div class="gauge-summary">顯示 ${filtered.length} / ${reshapeState.rows.length} 筆</div>
@@ -3770,6 +3777,65 @@ function reshapeRender(){
       </div>
     </div>
   `;
+}
+
+async function reshapeImportByDate(round){
+  round = round || 1;
+  const dateEl = document.getElementById('reshape_importDate');
+  const isoDate = dateEl ? dateEl.value : '';
+  if(!isoDate){ showToast('請先選擇日期'); return; }
+  const ymd = isoDate.split('-').join('/');
+  showToast(round===1 ? '📥 匯入中，請稍候…（掃描資料夾可能需要一些時間）' : `📥 檔案量較大，繼續匯入剩餘資料中…（第 ${round} 輪）`);
+  try{
+    const res = await reshapeApiPost('importByDate', {date: ymd});
+    if(res && res.ok){
+      if(res.stoppedEarly && res.remaining>0 && round<5){
+        // 後端因執行時間上限提早停止，已匯入的部分不會重複匯入，這裡自動接著匯入剩餘檔案
+        await reshapeInit();
+        return reshapeImportByDate(round+1);
+      }
+      showToast('✅ 匯入完成：新增 '+res.imported+' 筆，略過 '+((res.skipped&&res.skipped.length)||0)+' 筆(已存在)'
+        + (res.stoppedEarly ? `，⚠️ 檔案量太大尚有約 ${res.remaining} 筆未處理，請再按一次「匯入」繼續` : ''));
+      await reshapeInit();
+    }else{
+      showToast('❌ 匯入失敗:'+((res&&res.error)||'未知錯誤'));
+    }
+  }catch(err){
+    showToast('❌ 連線雲端失敗:'+err.message);
+  }
+}
+
+async function reshapeViewDetail(i){
+  const r = reshapeState.rows[i];
+  if(!r){ showToast('❌ 找不到這筆紀錄'); return; }
+  if(!r.date || (!r.wo && !r.machine)){ showToast('⚠️ 這筆紀錄缺少日期或批號/工單、機台，無法查詢來源資料'); return; }
+  showToast('🔍 查詢中…');
+  try{
+    const res = await reshapeApiPost('getReshapeDetail', {date:r.date, wo:r.wo||'', machine:r.machine||'', station:r.station||''});
+    if(res && res.ok){
+      showDataModal('自製整形明細 - '+ (r.wo||'') +' '+ (r.partName||''), reshapeBuildDetailHtml(res.rows||[], res.summary||null));
+    }else{
+      showToast('❌ 查詢失敗:'+((res&&res.error)||'未知錯誤'));
+    }
+  }catch(err){
+    showToast('❌ 連線雲端失敗:'+err.message);
+  }
+}
+
+function reshapeBuildDetailHtml(rows, summary){
+  if((!rows || rows.length===0) && !summary) return '<div class="small" style="color:#999;padding:8px 0;">無資料</div>';
+  let summaryHtml = '';
+  if(summary && typeof summary==='object'){
+    summaryHtml = `<div class="small" style="margin-bottom:10px;line-height:1.8;">` +
+      Object.keys(summary).map(k=>`${escHtml(k)}：${escHtml(summary[k])}`).join('　') +
+      `</div>`;
+  }
+  if(!rows || rows.length===0) return summaryHtml || '<div class="small" style="color:#999;padding:8px 0;">無資料</div>';
+  // 動態依實際回傳欄位建立表頭，避免欄位名稱與後端不一致時顯示錯誤
+  const cols = Object.keys(rows[0]);
+  const thead = '<thead><tr>'+cols.map(c=>`<th>${escHtml(c)}</th>`).join('')+'</tr></thead>';
+  const trs = rows.map(r=>'<tr>'+cols.map(c=>`<td>${escHtml(r[c])}</td>`).join('')+'</tr>').join('');
+  return summaryHtml + `<div class="table-wrap"><table>${thead}<tbody>${trs}</tbody></table></div>`;
 }
 
 function reshapeSetFilter(key, val, evt){
