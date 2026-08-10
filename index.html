@@ -1490,7 +1490,7 @@ async function iqcViewDetail(i){
   if(!r.date || !r.wo){ showToast('⚠️ 這筆紀錄缺少日期或工單號，無法查詢來源資料'); return; }
   showToast('🔍 查詢中…');
   try{
-    const res = await iqcApiPost('getIqcDetail', {date:r.date, wo:r.wo, partName:r.partName||''});
+    const res = await iqcApiPost('getIqcDetail', {date:r.date, wo:r.wo, partName:r.partName||'', sample:r.sample||''});
     if(res && res.ok){
       showDataModal('尺寸量測明細 - '+ (r.wo||'') +' '+ (r.partName||'') + '　【實際讀取檔案：'+(res.fileName||'未知')+'】', iqcBuildDetailHtml(res.grid||[]));
     }else{
