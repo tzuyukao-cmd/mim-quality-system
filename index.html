@@ -2207,9 +2207,10 @@ async function sinterViewDetail(i){
   if(!r.date || !r.furnace){ showToast('⚠️ 這筆紀錄缺少日期或爐號，無法查詢來源資料'); return; }
   showToast('🔍 查詢中…');
   try{
-    const res = await sinterApiPost('getSinterDetail', {date:r.date, furnace:r.furnace});
+    const res = await sinterApiPost('getSinterDetail', {date:r.date, furnace:r.furnace, model:r.model||''});
     if(res && res.ok){
-      showDataModal('燒結量測明細 - 爐號'+ (r.furnace||'') +' '+ (r.model||''), sinterBuildDetailHtml(res.rows||[]));
+      const bodyHtml = res.isDX07 ? sinterBuildDX07DetailHtml(res.rows||[]) : sinterBuildDetailHtml(res.rows||[]);
+      showDataModal('燒結量測明細 - 爐號'+ (r.furnace||'') +' '+ (r.model||''), bodyHtml);
     }else{
       showToast('❌ 查詢失敗:'+((res&&res.error)||'未知錯誤'));
     }
@@ -2242,6 +2243,24 @@ function sinterBuildDetailHtml(rows){
     </tr>`).join('');
   return summary + `<div class="table-wrap"><table>
     <thead><tr><th>量測項目</th><th>穴位</th><th>邊別</th><th>抽1</th><th>抽2</th><th>抽3</th><th>抽4</th><th>抽5</th></tr></thead>
+    <tbody>${trs}</tbody>
+  </table></div>`;
+}
+
+// DX07專屬：資料結構是類別/項目/區域/盤位/測量點/數值(尺寸4區×4盤×5點、密度外觀前後爐)，
+// 跟Z840那套(硬度/碳含量/孔洞/穴位R-L/抽1-5)完全不同，不套用sinterBuildDetailHtml()的欄位。
+function sinterBuildDX07DetailHtml(rows){
+  if(!rows || rows.length===0) return '<div class="small" style="color:#999;padding:8px 0;">無資料</div>';
+  const trs = rows.map(r=>`<tr>
+      <td>${escHtml(r.category||'')}</td>
+      <td>${escHtml(r.item||'')}</td>
+      <td>${escHtml(r.zone||'')}</td>
+      <td>${escHtml(r.tray||'')}</td>
+      <td>${escHtml(r.point||'')}</td>
+      <td>${escHtml(r.value||'')}</td>
+    </tr>`).join('');
+  return `<div class="table-wrap"><table>
+    <thead><tr><th>類別</th><th>項目</th><th>區域</th><th>盤位</th><th>測量點</th><th>數值</th></tr></thead>
     <tbody>${trs}</tbody>
   </table></div>`;
 }
@@ -3080,9 +3099,21 @@ async function injViewNineOClockDetail(i){
   try{
     const res = await injApiPost('getNineOClockDetail', {date:r.date, machine:r.machine, partName:r.partName||'', firstTime:r.firstTime||''});
     if(res && res.ok){
+      if(res.isDX07){
+        // DX07沒有R/L邊、日班夜班的概念，標題不套用那套標籤
+        showDataModal('完整量測資料(5時段) - '+ (r.machine||'') +' '+ (r.partName||''), injBuildNineOClockHtml(res.rows||[]));
+        return;
+      }
       const sideLabel = res.side==='L' ? 'L邊' : 'R邊';
       const shiftLabel = res.shift==='night' ? '夜班' : '日班';
-      const titlePrefix = res.shift==='night' ? '完整資料' : '9點時段資料';
+      let titlePrefix;
+      if(res.shift==='night'){
+        titlePrefix = '完整資料';
+      }else if(res.isFallback){
+        titlePrefix = (res.usedHour!=null ? res.usedHour+'點時段資料' : '時段資料') + '(9點無資料,自動改抓最近時段)';
+      }else{
+        titlePrefix = '9點時段資料';
+      }
       showDataModal(titlePrefix+'('+sideLabel+shiftLabel+') - '+ (r.machine||'') +' '+ (r.partName||''), injBuildNineOClockHtml(res.rows||[]));
     }else{
       showToast('❌ 查詢失敗:'+((res&&res.error)||'未知錯誤'));
