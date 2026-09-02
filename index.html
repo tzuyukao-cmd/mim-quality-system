@@ -2209,7 +2209,7 @@ async function sinterViewDetail(i){
   try{
     const res = await sinterApiPost('getSinterDetail', {date:r.date, furnace:r.furnace, model:r.model||''});
     if(res && res.ok){
-      const bodyHtml = res.isDX07 ? sinterBuildDX07DetailHtml(res.rows||[]) : sinterBuildDetailHtml(res.rows||[]);
+      const bodyHtml = res.isDX07 ? sinterBuildDX07DetailHtml(res.rows||[], res.summary||null) : sinterBuildDetailHtml(res.rows||[]);
       showDataModal('燒結量測明細 - 爐號'+ (r.furnace||'') +' '+ (r.model||''), bodyHtml);
     }else{
       showToast('❌ 查詢失敗:'+((res&&res.error)||'未知錯誤'));
@@ -2247,10 +2247,17 @@ function sinterBuildDetailHtml(rows){
   </table></div>`;
 }
 
-// DX07專屬：資料結構是類別/項目/區域/盤位/測量點/數值(尺寸4區×4盤×5點、密度外觀前後爐)，
+// DX07專屬：資料結構是類別/項目/區域/盤位/待測件/數值(尺寸4區×4盤×5點、密度外觀前後爐)，
 // 跟Z840那套(硬度/碳含量/孔洞/穴位R-L/抽1-5)完全不同，不套用sinterBuildDetailHtml()的欄位。
-function sinterBuildDX07DetailHtml(rows){
+function sinterBuildDX07DetailHtml(rows, summary){
   if(!rows || rows.length===0) return '<div class="small" style="color:#999;padding:8px 0;">無資料</div>';
+  const s = summary || {};
+  const summaryHtml = `
+    <div class="small" style="margin-bottom:10px;line-height:1.8;">
+      品名：${escHtml(s.product||'')}　工單號：${escHtml(s.wo||'')}<br>
+      出爐日：${escHtml(s.outDate||'')}　進爐日：${escHtml(s.inDate||'')}　爐溫：${escHtml(s.temp||'')}<br>
+      檢驗員：${escHtml(s.inspector||'')}　審查：${escHtml(s.reviewer||'')}
+    </div>`;
   const trs = rows.map(r=>`<tr>
       <td>${escHtml(r.category||'')}</td>
       <td>${escHtml(r.item||'')}</td>
@@ -2259,8 +2266,8 @@ function sinterBuildDX07DetailHtml(rows){
       <td>${escHtml(r.point||'')}</td>
       <td>${escHtml(r.value||'')}</td>
     </tr>`).join('');
-  return `<div class="table-wrap"><table>
-    <thead><tr><th>類別</th><th>項目</th><th>區域</th><th>盤位</th><th>測量點</th><th>數值</th></tr></thead>
+  return summaryHtml + `<div class="table-wrap"><table>
+    <thead><tr><th>類別</th><th>項目</th><th>區域</th><th>盤位</th><th>待測件</th><th>數值</th></tr></thead>
     <tbody>${trs}</tbody>
   </table></div>`;
 }
