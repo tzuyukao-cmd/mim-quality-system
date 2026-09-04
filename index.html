@@ -1438,6 +1438,8 @@ let iqcState = {
   editIndex: null,
   filterText: '',
   filterVerdict: 'all',
+  filterDateFrom: '',
+  filterDateTo: '',
   check: {app:false, jig:false, adh:false, tap:false},
   verdict: '',
   draft: {wo:'',bake:'',vendor:'',partName:'',sample:'',inspector:'',approver:'',desc:'',remark:''},
@@ -1583,6 +1585,18 @@ function iqcRender(){
       const hay = _normSearch([r.wo,r.vendor,r.partName,r.remark,r.desc,r.bake].join(' '));
       if(!hay.includes(f)) return false;
     }
+    if(iqcState.filterDateFrom || iqcState.filterDateTo){
+      const rDate = toYMD(r.date).split('/').join('');
+      if(!rDate) return false;
+      if(iqcState.filterDateFrom){
+        const from = iqcState.filterDateFrom.split('-').join('');
+        if(rDate < from) return false;
+      }
+      if(iqcState.filterDateTo){
+        const to = iqcState.filterDateTo.split('-').join('');
+        if(rDate > to) return false;
+      }
+    }
     return true;
   });
 
@@ -1633,6 +1647,14 @@ function iqcRender(){
           <option value="NG" ${iqcState.filterVerdict==='NG'?'selected':''}>僅看 NG</option>
           <option value="特採" ${iqcState.filterVerdict==='特採'?'selected':''}>僅看特採</option>
         </select>
+      </div>
+      <div class="gauge-filter-row" style="margin-top:8px;">
+        <label class="small" style="display:flex;align-items:center;gap:6px;white-space:nowrap;">📅 日期區間<span class="vi">Khoảng ngày</span>
+          <input id="iqc_filterDateFrom" type="date" value="${iqcState.filterDateFrom}" style="max-width:150px;" onchange="iqcSetFilter('filterDateFrom',this.value)">
+          ~
+          <input id="iqc_filterDateTo" type="date" value="${iqcState.filterDateTo}" style="max-width:150px;" onchange="iqcSetFilter('filterDateTo',this.value)">
+        </label>
+        ${(iqcState.filterDateFrom || iqcState.filterDateTo) ? '<button class="btn-ghost" style="padding:3px 10px;font-size:12px;" onclick="iqcClearDateFilter()">清除日期</button>' : ''}
       </div>
       <div class="gauge-summary">顯示 ${filtered.length} / ${iqcState.rows.length} 筆 <span class="vi" style="display:inline;">Hiển thị ${filtered.length} / ${iqcState.rows.length} dòng</span></div>
       <div class="table-wrap">
@@ -1711,6 +1733,12 @@ function iqcSetFilter(key, val, evt){
       }
     }
   }
+}
+
+function iqcClearDateFilter(){
+  iqcState.filterDateFrom = '';
+  iqcState.filterDateTo = '';
+  iqcRender();
 }
 
 function iqcReadForm(){
@@ -1810,6 +1838,8 @@ let heatState = {
   editIndex: null,
   filterText: '',
   filterVerdict: 'all',
+  filterDateFrom: '',
+  filterDateTo: '',
 };
 
 async function heatApiGet(params){
@@ -1901,6 +1931,18 @@ function heatRender(){
       const hay = _normSearch([r.partNo,r.wo,r.remark].join(' '));
       if(!hay.includes(f)) return false;
     }
+    if(heatState.filterDateFrom || heatState.filterDateTo){
+      const rDate = toYMD(r.date).split('/').join('');
+      if(!rDate) return false;
+      if(heatState.filterDateFrom){
+        const from = heatState.filterDateFrom.split('-').join('');
+        if(rDate < from) return false;
+      }
+      if(heatState.filterDateTo){
+        const to = heatState.filterDateTo.split('-').join('');
+        if(rDate > to) return false;
+      }
+    }
     return true;
   });
 
@@ -1946,6 +1988,14 @@ function heatRender(){
           <option value="特採" ${heatState.filterVerdict==='特採'?'selected':''}>僅看特採</option>
         </select>
       </div>
+      <div class="gauge-filter-row" style="margin-top:8px;">
+        <label class="small" style="display:flex;align-items:center;gap:6px;white-space:nowrap;">📅 日期區間
+          <input id="heat_filterDateFrom" type="date" value="${heatState.filterDateFrom}" style="max-width:150px;" onchange="heatSetFilter('filterDateFrom',this.value)">
+          ~
+          <input id="heat_filterDateTo" type="date" value="${heatState.filterDateTo}" style="max-width:150px;" onchange="heatSetFilter('filterDateTo',this.value)">
+        </label>
+        ${(heatState.filterDateFrom || heatState.filterDateTo) ? '<button class="btn-ghost" style="padding:3px 10px;font-size:12px;" onclick="heatClearDateFilter()">清除日期</button>' : ''}
+      </div>
       <div class="gauge-summary">顯示 ${filtered.length} / ${heatState.rows.length} 筆</div>
       <div class="table-wrap">
         <table>
@@ -1974,6 +2024,12 @@ function heatSetFilter(key, val, evt){
       }
     }
   }
+}
+
+function heatClearDateFilter(){
+  heatState.filterDateFrom = '';
+  heatState.filterDateTo = '';
+  heatRender();
 }
 
 function heatReadForm(){
@@ -2054,6 +2110,8 @@ let sinterState = {
   editIndex: null,
   filterText: '',
   filterVerdict: 'all',
+  filterDateFrom: '',
+  filterDateTo: '',
 };
 
 async function sinterApiGet(params){
@@ -2127,6 +2185,18 @@ function sinterRender(){
       const hay = _normSearch([r.wo,r.model,r.furnace,r.remark].join(' '));
       if(!hay.includes(f)) return false;
     }
+    if(sinterState.filterDateFrom || sinterState.filterDateTo){
+      const rDate = toYMD(r.date).split('/').join('');
+      if(!rDate) return false;
+      if(sinterState.filterDateFrom){
+        const from = sinterState.filterDateFrom.split('-').join('');
+        if(rDate < from) return false;
+      }
+      if(sinterState.filterDateTo){
+        const to = sinterState.filterDateTo.split('-').join('');
+        if(rDate > to) return false;
+      }
+    }
     return true;
   });
 
@@ -2170,6 +2240,14 @@ function sinterRender(){
           <option value="不合格" ${sinterState.filterVerdict==='不合格'?'selected':''}>僅看不合格</option>
           <option value="待人工確認" ${sinterState.filterVerdict==='待人工確認'?'selected':''}>僅看待人工確認</option>
         </select>
+      </div>
+      <div class="gauge-filter-row" style="margin-top:8px;">
+        <label class="small" style="display:flex;align-items:center;gap:6px;white-space:nowrap;">📅 日期區間
+          <input id="sinter_filterDateFrom" type="date" value="${sinterState.filterDateFrom}" style="max-width:150px;" onchange="sinterSetFilter('filterDateFrom',this.value)">
+          ~
+          <input id="sinter_filterDateTo" type="date" value="${sinterState.filterDateTo}" style="max-width:150px;" onchange="sinterSetFilter('filterDateTo',this.value)">
+        </label>
+        ${(sinterState.filterDateFrom || sinterState.filterDateTo) ? '<button class="btn-ghost" style="padding:3px 10px;font-size:12px;" onclick="sinterClearDateFilter()">清除日期</button>' : ''}
       </div>
       <div class="gauge-summary">顯示 ${filtered.length} / ${sinterState.rows.length} 筆</div>
       <div class="table-wrap">
@@ -2289,6 +2367,12 @@ function sinterSetFilter(key, val, evt){
       }
     }
   }
+}
+
+function sinterClearDateFilter(){
+  sinterState.filterDateFrom = '';
+  sinterState.filterDateTo = '';
+  sinterRender();
 }
 
 function sinterReadForm(){
@@ -2871,6 +2955,8 @@ let injState = {
   editIndex: null,
   filterText: '',
   filterVerdict: 'all',
+  filterDateFrom: '',
+  filterDateTo: '',
 };
 
 async function injApiGet(params){
@@ -2950,6 +3036,18 @@ function injRender(){
       const hay = _normSearch([r.machine,r.partName,r.model,r.materialBatch9].join(' '));
       if(!hay.includes(f)) return false;
     }
+    if(injState.filterDateFrom || injState.filterDateTo){
+      const rDate = toYMD(r.date).split('/').join(''); // yyyy/MM/dd -> yyyyMMdd，方便直接字串比大小
+      if(!rDate) return false;
+      if(injState.filterDateFrom){
+        const from = injState.filterDateFrom.split('-').join('');
+        if(rDate < from) return false;
+      }
+      if(injState.filterDateTo){
+        const to = injState.filterDateTo.split('-').join('');
+        if(rDate > to) return false;
+      }
+    }
     return true;
   });
 
@@ -3001,6 +3099,14 @@ function injRender(){
           <option value="待人工確認" ${injState.filterVerdict==='待人工確認'?'selected':''}>僅看待人工確認</option>
         </select>
       </div>
+      <div class="gauge-filter-row" style="margin-top:8px;">
+        <label class="small" style="display:flex;align-items:center;gap:6px;white-space:nowrap;">📅 日期區間
+          <input id="inj_filterDateFrom" type="date" value="${injState.filterDateFrom}" style="max-width:150px;" onchange="injSetFilter('filterDateFrom',this.value)">
+          ~
+          <input id="inj_filterDateTo" type="date" value="${injState.filterDateTo}" style="max-width:150px;" onchange="injSetFilter('filterDateTo',this.value)">
+        </label>
+        ${(injState.filterDateFrom || injState.filterDateTo) ? '<button class="btn-ghost" style="padding:3px 10px;font-size:12px;" onclick="injClearDateFilter()">清除日期</button>' : ''}
+      </div>
       <div class="gauge-summary">顯示 ${filtered.length} / ${injState.rows.length} 筆(待人工確認的請點「編輯」對照備註內容補填；材料批號自動依品名判斷R/L邊、日班夜班帶自生產工站檢驗記錄卡系統，唯讀不需填寫；重量/密度若原本空白會自動帶入該班別第一列參考值，已填寫過的不會被覆蓋；點「查看明細」可直接彈窗看該筆日班9點時段或夜班完整原始資料)</div>
       <div class="table-wrap">
         <table>
@@ -3029,6 +3135,12 @@ function injSetFilter(key, val, evt){
       }
     }
   }
+}
+
+function injClearDateFilter(){
+  injState.filterDateFrom = '';
+  injState.filterDateTo = '';
+  injRender();
 }
 
 function injReadForm(){
@@ -3178,6 +3290,8 @@ let fqcState = {
   editIndex: null,
   filterText: '',
   filterResult: 'all',
+  filterDateFrom: '',
+  filterDateTo: '',
 };
 
 async function fqcApiGet(params){
@@ -3260,6 +3374,18 @@ function fqcRender(){
       const hay = _normSearch([r.lot,r.wo,r.partNo,r.note].join(' '));
       if(!hay.includes(f)) return false;
     }
+    if(fqcState.filterDateFrom || fqcState.filterDateTo){
+      const rDate = toYMD(r.date).split('/').join('');
+      if(!rDate) return false;
+      if(fqcState.filterDateFrom){
+        const from = fqcState.filterDateFrom.split('-').join('');
+        if(rDate < from) return false;
+      }
+      if(fqcState.filterDateTo){
+        const to = fqcState.filterDateTo.split('-').join('');
+        if(rDate > to) return false;
+      }
+    }
     return true;
   });
 
@@ -3305,6 +3431,14 @@ function fqcRender(){
           <option value="特採" ${fqcState.filterResult==='特採'?'selected':''}>僅看特採</option>
         </select>
       </div>
+      <div class="gauge-filter-row" style="margin-top:8px;">
+        <label class="small" style="display:flex;align-items:center;gap:6px;white-space:nowrap;">📅 日期區間
+          <input id="fqc_filterDateFrom" type="date" value="${fqcState.filterDateFrom}" style="max-width:150px;" onchange="fqcSetFilter('filterDateFrom',this.value)">
+          ~
+          <input id="fqc_filterDateTo" type="date" value="${fqcState.filterDateTo}" style="max-width:150px;" onchange="fqcSetFilter('filterDateTo',this.value)">
+        </label>
+        ${(fqcState.filterDateFrom || fqcState.filterDateTo) ? '<button class="btn-ghost" style="padding:3px 10px;font-size:12px;" onclick="fqcClearDateFilter()">清除日期</button>' : ''}
+      </div>
       <div class="gauge-summary">顯示 ${filtered.length} / ${fqcState.rows.length} 筆</div>
       <div class="table-wrap">
         <table>
@@ -3333,6 +3467,12 @@ function fqcSetFilter(key, val, evt){
       }
     }
   }
+}
+
+function fqcClearDateFilter(){
+  fqcState.filterDateFrom = '';
+  fqcState.filterDateTo = '';
+  fqcRender();
 }
 
 // 一次性遷移:把舊資料「批號/工單」混合欄位拆成獨立的 lot 與 wo
@@ -3432,6 +3572,8 @@ let blastState = {
   editIndex: null,
   filterText: '',
   filterResult: 'all',
+  filterDateFrom: '',
+  filterDateTo: '',
 };
 
 async function blastApiGet(params){
@@ -3522,6 +3664,18 @@ function blastRender(){
       const hay = _normSearch([r.wo,r.partNo,r.partName,r.note].join(' '));
       if(!hay.includes(f)) return false;
     }
+    if(blastState.filterDateFrom || blastState.filterDateTo){
+      const rDate = toYMD(r.date).split('/').join('');
+      if(!rDate) return false;
+      if(blastState.filterDateFrom){
+        const from = blastState.filterDateFrom.split('-').join('');
+        if(rDate < from) return false;
+      }
+      if(blastState.filterDateTo){
+        const to = blastState.filterDateTo.split('-').join('');
+        if(rDate > to) return false;
+      }
+    }
     return true;
   });
 
@@ -3561,6 +3715,14 @@ function blastRender(){
           <option value="NG" ${blastState.filterResult==='NG'?'selected':''}>僅看NG</option>
         </select>
       </div>
+      <div class="gauge-filter-row" style="margin-top:8px;">
+        <label class="small" style="display:flex;align-items:center;gap:6px;white-space:nowrap;">📅 日期區間
+          <input id="blast_filterDateFrom" type="date" value="${blastState.filterDateFrom}" style="max-width:150px;" onchange="blastSetFilter('filterDateFrom',this.value)">
+          ~
+          <input id="blast_filterDateTo" type="date" value="${blastState.filterDateTo}" style="max-width:150px;" onchange="blastSetFilter('filterDateTo',this.value)">
+        </label>
+        ${(blastState.filterDateFrom || blastState.filterDateTo) ? '<button class="btn-ghost" style="padding:3px 10px;font-size:12px;" onclick="blastClearDateFilter()">清除日期</button>' : ''}
+      </div>
       <div class="gauge-summary">顯示 ${filtered.length} / ${blastState.rows.length} 筆</div>
       <div class="table-wrap">
         <table>
@@ -3589,6 +3751,12 @@ function blastSetFilter(key, val, evt){
       }
     }
   }
+}
+
+function blastClearDateFilter(){
+  blastState.filterDateFrom = '';
+  blastState.filterDateTo = '';
+  blastRender();
 }
 
 function blastReadForm(){
@@ -3676,6 +3844,8 @@ let reshapeState = {
   editIndex: null,
   filterText: '',
   filterResult: 'all',
+  filterDateFrom: '',
+  filterDateTo: '',
 };
 
 async function reshapeApiGet(params){
@@ -3760,6 +3930,18 @@ function reshapeRender(){
       const hay = _normSearch([r.wo,r.partName,r.machine,r.station,r.inspector,r.note].join(' '));
       if(!hay.includes(f)) return false;
     }
+    if(reshapeState.filterDateFrom || reshapeState.filterDateTo){
+      const rDate = toYMD(r.date).split('/').join('');
+      if(!rDate) return false;
+      if(reshapeState.filterDateFrom){
+        const from = reshapeState.filterDateFrom.split('-').join('');
+        if(rDate < from) return false;
+      }
+      if(reshapeState.filterDateTo){
+        const to = reshapeState.filterDateTo.split('-').join('');
+        if(rDate > to) return false;
+      }
+    }
     return true;
   });
 
@@ -3805,6 +3987,14 @@ function reshapeRender(){
           <option value="NG" ${reshapeState.filterResult==='NG'?'selected':''}>僅看NG</option>
           <option value="待人工確認" ${reshapeState.filterResult==='待人工確認'?'selected':''}>僅看待人工確認</option>
         </select>
+      </div>
+      <div class="gauge-filter-row" style="margin-top:8px;">
+        <label class="small" style="display:flex;align-items:center;gap:6px;white-space:nowrap;">📅 日期區間
+          <input id="reshape_filterDateFrom" type="date" value="${reshapeState.filterDateFrom}" style="max-width:150px;" onchange="reshapeSetFilter('filterDateFrom',this.value)">
+          ~
+          <input id="reshape_filterDateTo" type="date" value="${reshapeState.filterDateTo}" style="max-width:150px;" onchange="reshapeSetFilter('filterDateTo',this.value)">
+        </label>
+        ${(reshapeState.filterDateFrom || reshapeState.filterDateTo) ? '<button class="btn-ghost" style="padding:3px 10px;font-size:12px;" onclick="reshapeClearDateFilter()">清除日期</button>' : ''}
       </div>
       <div class="gauge-summary">顯示 ${filtered.length} / ${reshapeState.rows.length} 筆</div>
       <div class="table-wrap">
@@ -3894,6 +4084,12 @@ function reshapeSetFilter(key, val, evt){
       }
     }
   }
+}
+
+function reshapeClearDateFilter(){
+  reshapeState.filterDateFrom = '';
+  reshapeState.filterDateTo = '';
+  reshapeRender();
 }
 
 function reshapeReadForm(){
