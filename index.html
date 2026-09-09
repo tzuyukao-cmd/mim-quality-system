@@ -2287,7 +2287,7 @@ async function sinterViewDetail(i){
   try{
     const res = await sinterApiPost('getSinterDetail', {date:r.date, furnace:r.furnace, model:r.model||''});
     if(res && res.ok){
-      const bodyHtml = res.isDX07 ? sinterBuildDX07DetailHtml(res.rows||[], res.summary||null) : sinterBuildDetailHtml(res.rows||[]);
+      const bodyHtml = res.isDX07 ? sinterBuildDX07DetailHtml(res.rows||[], res.summary||null) : res.isP885 ? sinterBuildP885DetailHtml(res.summary||null, res.rows||[]) : sinterBuildDetailHtml(res.rows||[]);
       showDataModal('燒結量測明細 - 爐號'+ (r.furnace||'') +' '+ (r.model||''), bodyHtml);
     }else{
       showToast('❌ 查詢失敗:'+((res&&res.error)||'未知錯誤'));
@@ -2348,6 +2348,43 @@ function sinterBuildDX07DetailHtml(rows, summary){
     <thead><tr><th>類別</th><th>項目</th><th>區域</th><th>盤位</th><th>待測件</th><th>數值</th></tr></thead>
     <tbody>${trs}</tbody>
   </table></div>`;
+}
+
+// P885專屬：總表是一爐一列的摘要(硬度/密度/模號/外觀都在同一列)，
+// 另外還有6個獨立的尺寸/判定記錄分頁(逐盤逐位逐件)，2026-09-09補上rows表格顯示。
+function sinterBuildP885DetailHtml(summary, rows){
+  if(!summary) return '<div class="small" style="color:#999;padding:8px 0;">無資料</div>';
+  const s = summary;
+  const summaryHtml = `
+    <div class="small" style="line-height:1.8;margin-bottom:10px;">
+      品名：${escHtml(s.product||'')}　工單號碼：${escHtml(s.wo||'')}<br>
+      進爐日：${escHtml(s.inDate||'')}　出爐日：${escHtml(s.outDate||'')}　爐溫：${escHtml(s.temp||'')}<br>
+      模號　前R：${escHtml(s.moldFrontR||'')}　前L：${escHtml(s.moldFrontL||'')}　後R：${escHtml(s.moldBackR||'')}　後L：${escHtml(s.moldBackL||'')}<br>
+      硬度R：${escHtml(s.hardnessR||'')}　硬度L：${escHtml(s.hardnessL||'')}<br>
+      密度R：${escHtml(s.densityR||'')}　密度L：${escHtml(s.densityL||'')}<br>
+      外觀-前R：${escHtml(s.appearanceFrontR||'')}　外觀-後L：${escHtml(s.appearanceBackL||'')}<br>
+      備註：${escHtml(s.remark||'')}<br>
+      檢驗：${escHtml(s.inspector||'')}　審查：${escHtml(s.reviewer||'')}
+    </div>`;
+  if(!rows || rows.length===0) return summaryHtml + '<div class="small" style="color:#999;padding:8px 0;">尺寸/判定明細：查無資料</div>';
+  const order = ['尺寸(1)','尺寸(2)','三圓孔判定','B基準孔判定','尺寸(3)判定','尺寸(4)判定'];
+  let tablesHtml = '';
+  order.forEach(function(cat){
+    const items = rows.filter(function(r){ return r.category===cat; });
+    if(items.length===0) return;
+    const trs = items.map(function(r){ return `<tr>
+        <td>${escHtml(r.tray||'')}</td>
+        <td>${escHtml(r.pos||'')}</td>
+        <td>${escHtml(r.piece||'')}</td>
+        <td>${escHtml(r.value||'')}</td>
+      </tr>`; }).join('');
+    tablesHtml += `<div class="small" style="margin:10px 0 4px;font-weight:600;">${escHtml(cat)}</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>盤別</th><th>位置</th><th>件</th><th>數值</th></tr></thead>
+        <tbody>${trs}</tbody>
+      </table></div>`;
+  });
+  return summaryHtml + tablesHtml;
 }
 
 function sinterSetFilter(key, val, evt){
