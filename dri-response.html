@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>特採簽核 - MIM品質系統</title>
+<style>
+  body{font-family:"Microsoft JhengHei",sans-serif;background:#f4f5f7;margin:0;padding:20px;color:#222;}
+  .card{max-width:520px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:24px;}
+  h1{font-size:20px;margin:0 0 4px;}
+  .ticket-no{font-family:monospace;font-size:15px;color:#555;margin-bottom:16px;}
+  .facts{width:100%;border-collapse:collapse;margin-bottom:16px;}
+  .facts td{padding:6px 4px;border-bottom:1px solid #eee;font-size:14px;}
+  .facts td:first-child{color:#888;width:90px;}
+  label{display:block;font-size:13px;color:#555;margin:12px 0 4px;font-weight:600;}
+  select,input[type=text],input[type=password],textarea{width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px;}
+  textarea{min-height:60px;resize:vertical;}
+  .choice-row{display:flex;gap:8px;margin-top:6px;}
+  .choice-btn{flex:1;padding:10px;border:1.5px solid #ccc;border-radius:6px;background:#fff;cursor:pointer;font-weight:700;font-size:14px;}
+  .choice-btn.sel{border-color:#2563eb;background:#eff6ff;color:#2563eb;}
+  .release-condition{display:none;margin-top:8px;}
+  .release-condition.show{display:block;}
+  .submit-btn{margin-top:18px;width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:15px;font-weight:700;cursor:pointer;}
+  .submit-btn:disabled{background:#aaa;cursor:not-allowed;}
+  .msg{margin-top:12px;padding:10px;border-radius:6px;font-size:13px;display:none;}
+  .msg.err{background:#fdecea;color:#c0392b;display:block;}
+  .msg.ok{background:#e6f6ec;color:#1e7e34;display:block;}
+  .readonly-box{background:#f8f9fa;border-radius:6px;padding:14px;font-size:14px;line-height:1.6;}
+  .loading{text-align:center;color:#888;padding:30px 0;}
+</style>
+</head>
+<body>
+<div class="card" id="app">
+  <div class="loading">讀取中…</div>
+</div>
+
+<script>
+// ★ 部署dri_response_backend.gs後，把Web App網址貼在這裡
+const API_URL = 'https://script.google.com/macros/s/AKfycbxWZB8U3HaU7m9TZsQ85PzRCvFJf8zIt3dd8WppQdu6XuPLwcKku-bCIzbE4v7qVP3Z/exec';
+
+const params = new URLSearchParams(location.search);
+const ticketNo = params.get('ticket');
+const app = document.getElementById('app');
+
+async function apiGet(action, extra){
+  const qs = new URLSearchParams(Object.assign({action}, extra||{}));
+  const res = await fetch(API_URL + '?' + qs.toString());
+  return res.json();
+}
+async function apiPost(action, payload){
+  const res = await fetch(API_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify({action, payload})
+  });
+  return res.json();
+}
+
+function escHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderFactsTable(t){
+  return `<table class="facts">
+    <tr><td>日期</td><td>${escHtml(t.date)}</td></tr>
+    <tr><td>爐號</td><td>${escHtml(t.furnace)}</td></tr>
+    <tr><td>模號</td><td>${escHtml(t.model)}</td></tr>
+    <tr><td>工單號</td><td>${escHtml(t.wo)}</td></tr>
+    <tr><td>判定</td><td>${escHtml(t.verdict)}</td></tr>
+  </table>`;
+}
+
+async function init(){
+  if(!ticketNo){
+    app.innerHTML = `<h1>特採簽核</h1><div class="msg err">網址缺少單號參數(?ticket=...)，請確認連結是否正確。</div>`;
+    return;
+  }
+  if(API_URL.indexOf('PASTE_')===0){
+    app.innerHTML = `<h1>特採簽核</h1><div class="msg err">尚未設定API_URL，請先部署dri_response_backend.gs並填入網址。</div>`;
+    return;
+  }
+  try{
+    const res = await apiGet('getTicketStatus', {ticket: ticketNo});
+    if(!res.ok){ app.innerHTML = `<h1>特採簽核</h1><div class="msg err">${escHtml(res.error)}</div>`; return; }
+    render(res);
+  }catch(err){
+    app.innerHTML = `<h1>特採簽核</h1><div class="msg err">連線失敗：${escHtml(err.message)}</div>`;
+  }
+}
+
+function render(data){
+  if(data.status === '待DRI回應'){
+    renderDriForm(data);
+  }else if(data.status === '待大主管核准'){
+    renderManagerForm(data);
+  }else{
+    renderReadonly(data);
+  }
+}
+
+function renderReadonly(data){
+  const who = data.mgrName || data.driName || '';
+  const when = data.mgrTime || data.driTime || '';
+  const result = data.status === '已完結'
+    ? (data.mgrChoice === '駁回' ? '大主管駁回(退回DRI重新處理中)' : (data.driChoice || data.mgrChoice || ''))
+    : data.status;
+  app.innerHTML = `
+    <h1>特採簽核</h1>
+    <div class="ticket-no">${escHtml(data.ticketNo)}</div>
+    ${renderFactsTable(data.ticket)}
+    <div class="readonly-box">
+      此單已由 <b>${escHtml(who)}</b> 於 <b>${escHtml(when)}</b> 處理，
+      目前狀態：<b>${escHtml(data.status)}</b>
+      ${data.driChoice ? `<br>DRI判定：${escHtml(data.driChoice)}` : ''}
+      ${data.releaseCondition ? `<br>放行條件：${escHtml(data.releaseCondition)}` : ''}
+      ${data.mgrChoice ? `<br>大主管：${escHtml(data.mgrChoice)}` : ''}
+    </div>
+  `;
+}
+
+function renderDriForm(data){
+  app.innerHTML = `
+    <h1>特採簽核 - DRI判定</h1>
+    <div class="ticket-no">${escHtml(data.ticketNo)}</div>
+    ${renderFactsTable(data.ticket)}
+    <label>回應人姓名</label>
+    <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
+    <label>密碼</label>
+    <input type="password" id="f_password" placeholder="個人密碼(初始為工號)">
+    <label>判定</label>
+    <div class="choice-row" id="choiceRow">
+      <button type="button" class="choice-btn" data-v="放行">放行</button>
+      <button type="button" class="choice-btn" data-v="重工">重工</button>
+      <button type="button" class="choice-btn" data-v="報廢">報廢</button>
+    </div>
+    <div class="release-condition" id="releaseBox">
+      <label>⚠️ 放行條件(必填)</label>
+      <textarea id="f_condition" placeholder="請說明此次特採放行的判斷依據/條件"></textarea>
+    </div>
+    <label>備註(選填)</label>
+    <textarea id="f_remark"></textarea>
+    <button class="submit-btn" id="submitBtn">送出</button>
+    <div class="msg" id="msgBox"></div>
+  `;
+  let choice = '';
+  document.querySelectorAll('#choiceRow .choice-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      choice = btn.dataset.v;
+      document.querySelectorAll('#choiceRow .choice-btn').forEach(b=>b.classList.toggle('sel', b===btn));
+      document.getElementById('releaseBox').classList.toggle('show', choice==='放行');
+    };
+  });
+  document.getElementById('submitBtn').onclick = async ()=>{
+    const name = document.getElementById('f_name').value.trim();
+    const password = document.getElementById('f_password').value;
+    const condition = document.getElementById('f_condition').value.trim();
+    const remark = document.getElementById('f_remark').value.trim();
+    const msgBox = document.getElementById('msgBox');
+    msgBox.className = 'msg';
+    if(!name || !password){ msgBox.className='msg err'; msgBox.textContent='請輸入姓名和密碼'; return; }
+    if(!choice){ msgBox.className='msg err'; msgBox.textContent='請選擇判定'; return; }
+    if(choice==='放行' && !condition){ msgBox.className='msg err'; msgBox.textContent='選擇放行時必須填寫放行條件'; return; }
+    document.getElementById('submitBtn').disabled = true;
+    try{
+      const res = await apiPost('driRespond', {ticketNo: data.ticketNo, name, password, choice, releaseCondition: condition, remark});
+      if(res.ok){
+        msgBox.className='msg ok'; msgBox.textContent='已送出，處理完成。';
+        setTimeout(()=>init(), 1200);
+      }else{
+        msgBox.className='msg err'; msgBox.textContent=res.error;
+        document.getElementById('submitBtn').disabled = false;
+      }
+    }catch(err){
+      msgBox.className='msg err'; msgBox.textContent='連線失敗：'+err.message;
+      document.getElementById('submitBtn').disabled = false;
+    }
+  };
+}
+
+function renderManagerForm(data){
+  app.innerHTML = `
+    <h1>特採簽核 - 大主管核准</h1>
+    <div class="ticket-no">${escHtml(data.ticketNo)}</div>
+    ${renderFactsTable(data.ticket)}
+    <div class="readonly-box">
+      DRI：<b>${escHtml(data.driName)}</b>（${escHtml(data.driTime)}）<br>
+      放行條件：${escHtml(data.releaseCondition)}
+      ${data.driRemark ? `<br>DRI備註：${escHtml(data.driRemark)}` : ''}
+    </div>
+    <label>核准人姓名</label>
+    <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
+    <label>密碼</label>
+    <input type="password" id="f_password" placeholder="個人密碼(初始為工號)">
+    <label>核准結果</label>
+    <div class="choice-row" id="choiceRow">
+      <button type="button" class="choice-btn" data-v="核准">核准</button>
+      <button type="button" class="choice-btn" data-v="駁回">駁回</button>
+    </div>
+    <label>備註(選填)</label>
+    <textarea id="f_remark"></textarea>
+    <button class="submit-btn" id="submitBtn">送出</button>
+    <div class="msg" id="msgBox"></div>
+  `;
+  let decision = '';
+  document.querySelectorAll('#choiceRow .choice-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      decision = btn.dataset.v;
+      document.querySelectorAll('#choiceRow .choice-btn').forEach(b=>b.classList.toggle('sel', b===btn));
+    };
+  });
+  document.getElementById('submitBtn').onclick = async ()=>{
+    const name = document.getElementById('f_name').value.trim();
+    const password = document.getElementById('f_password').value;
+    const remark = document.getElementById('f_remark').value.trim();
+    const msgBox = document.getElementById('msgBox');
+    msgBox.className = 'msg';
+    if(!name || !password){ msgBox.className='msg err'; msgBox.textContent='請輸入姓名和密碼'; return; }
+    if(!decision){ msgBox.className='msg err'; msgBox.textContent='請選擇核准結果'; return; }
+    document.getElementById('submitBtn').disabled = true;
+    try{
+      const res = await apiPost('managerRespond', {ticketNo: data.ticketNo, name, password, decision, remark});
+      if(res.ok){
+        msgBox.className='msg ok'; msgBox.textContent='已送出，處理完成。';
+        setTimeout(()=>init(), 1200);
+      }else{
+        msgBox.className='msg err'; msgBox.textContent=res.error;
+        document.getElementById('submitBtn').disabled = false;
+      }
+    }catch(err){
+      msgBox.className='msg err'; msgBox.textContent='連線失敗：'+err.message;
+      document.getElementById('submitBtn').disabled = false;
+    }
+  };
+}
+
+init();
+</script>
+</body>
+</html>
