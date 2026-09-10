@@ -2211,6 +2211,7 @@ function sinterRender(){
         <td>${escHtml(r.wo||'')}</td>
         <td>${escHtml(r.model||'')}</td>
         <td><span class="iqc-verdict-pill ${r.verdict==='合格'?'ok':'ng'}" style="${r.verdict==='待人工確認'?'background:#fff4e0;color:var(--warn);':''}">${r.verdict||''}</span></td>
+        <td style="font-family:monospace;font-size:12px;">${escHtml(r.ticketNo||'')}</td>
         <td title="${escHtml(r.remark||'')}">${escHtml(remarkShort)}</td>
         <td style="white-space:nowrap;">
           <button class="gauge-edit-btn" onclick="sinterEdit(${i})">✏ 編輯</button>
@@ -2252,7 +2253,7 @@ function sinterRender(){
       <div class="gauge-summary">顯示 ${filtered.length} / ${sinterState.rows.length} 筆</div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>日期</th><th>爐號</th><th>溫度(℃)</th><th>工單號</th><th>模號</th><th>判定</th><th>備註</th><th>操作</th></tr></thead>
+          <thead><tr><th>日期</th><th>爐號</th><th>溫度(℃)</th><th>工單號</th><th>模號</th><th>判定</th><th>異常單號</th><th>備註</th><th>操作</th></tr></thead>
           <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:#999;padding:16px;">尚無資料</td></tr>'}</tbody>
         </table>
       </div>
@@ -2271,6 +2272,9 @@ async function sinterImportByDate(){
     if(res && res.ok){
       showToast('✅ 匯入完成：新增 '+res.imported+' 筆，略過 '+((res.skipped&&res.skipped.length)||0)+' 筆(已存在)');
       await sinterInit();
+      if(res.newTickets && res.newTickets.length){
+        showToast(`📨 已產生 ${res.newTickets.length} 張異常單並發送Teams通知`);
+      }
     }else{
       showToast('❌ 匯入失敗:'+((res&&res.error)||'未知錯誤'));
     }
@@ -2455,16 +2459,40 @@ async function sinterDelete(i){
 }
 
 async function sinterSaveToCloud(){
-  if(!sinterState.rows || sinterState.rows.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return; }
+  if(!sinterState.rows || sinterState.rows.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return null; }
   showToast('儲存中…');
   try{
     const res = await sinterApiPost('saveData', sinterState.rows);
-    if(res && res.ok){ showToast('✅ 已儲存至雲端('+res.count+' 筆)'); }
-    else{ showToast('❌ 儲存失敗:'+((res&&res.error)||'未知錯誤')); }
+    if(res && res.ok){
+      showToast('✅ 已儲存至雲端('+res.count+' 筆)');
+      if(res.newTickets && res.newTickets.length){
+        sinterApplyNewTicketNos(res.newTickets);
+        showToast(`📨 已產生 ${res.newTickets.length} 張異常單並發送Teams通知`);
+      }
+    }else{
+      showToast('❌ 儲存失敗:'+((res&&res.error)||'未知錯誤'));
+    }
+    return res;
   }catch(err){
     showToast('❌ 連線雲端失敗:'+err.message);
+    return null;
   }
 }
+
+// 存檔後端回傳的 newTickets 只含日期/爐號/模號/工單號這幾個比對用欄位，
+// 用來把剛產生的異常單號回填進本地 sinterState.rows 對應那筆，不用整批重新getData()
+function sinterApplyNewTicketNos(newTickets){
+  newTickets.forEach(function(t){
+    const row = sinterState.rows.find(r=>!r.ticketNo && r.date===t.date && r.furnace===t.furnace && r.model===t.model && r.verdict===t.verdict);
+    if(row) row.ticketNo = t.ticketNo;
+  });
+}
+
+// 特採簽核機制的NG/待人工確認通知，2026-09-09發現瀏覽器fetch用no-cors模式送出時
+// Content-Type會被強制改成text/plain(no-cors模式規定只能用CORS安全標頭)，導致Power Automate
+// 收到非JSON格式回400。改成由Apps Script後端(saveData()裡呼叫UrlFetchApp)發送，
+// 不受瀏覽器CORS限制，詳見sinter_backend_fixed.gs的_sinterNotifyNewTickets_()。
+// 前端這裡只需要把後端回傳的newTickets回填單號、顯示提示即可，不用自己打webhook。
 
 function sinterImportFile(evt){
   const file = evt.target.files[0];
