@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>特採簽核總表 - MIM品質系統</title>
+<style>
+  body{font-family:"Microsoft JhengHei",sans-serif;background:#f4f5f7;margin:0;padding:20px;color:#222;}
+  .wrap{max-width:1400px;margin:0 auto;}
+  h1{font-size:20px;margin:0 0 12px;}
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+  .toolbar input,.toolbar select{padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;}
+  .toolbar input{flex:1;min-width:200px;}
+  .count{color:#666;font-size:13px;}
+  .table-wrap{background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:auto;max-height:75vh;}
+  table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap;}
+  th,td{border:1px solid #e3e5e8;padding:7px 10px;text-align:left;}
+  th{background:#f0f1f3;position:sticky;top:0;cursor:pointer;user-select:none;font-weight:700;}
+  th:hover{background:#e4e6ea;}
+  th.sorted::after{content:' ▾';}
+  th.sorted.asc::after{content:' ▴';}
+  tr:nth-child(even){background:#fafbfc;}
+  tr:hover{background:#eef4ff;}
+  .pill{padding:2px 8px;border-radius:12px;font-size:12px;font-weight:700;}
+  .pill.wait{background:#fff4e0;color:#a15c00;}
+  .pill.done{background:#e6f6ec;color:#1e7e34;}
+  .link-btn{color:#2563eb;text-decoration:none;font-weight:700;}
+  .link-btn:hover{text-decoration:underline;}
+  .loading{padding:30px;text-align:center;color:#888;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📋 特採簽核總表</h1>
+  <div class="toolbar">
+    <input type="text" id="filterText" placeholder="搜尋單號/爐號/模號/工單號/DRI/大主管...">
+    <select id="filterStatus">
+      <option value="">全部狀態</option>
+      <option value="待DRI回應">待DRI回應</option>
+      <option value="待大主管核准">待大主管核准</option>
+      <option value="已完結">已完結</option>
+    </select>
+    <span class="count" id="countText"></span>
+  </div>
+  <div class="table-wrap">
+    <table id="table">
+      <thead><tr>
+        <th data-k="ticketNo">異常單號</th>
+        <th data-k="station">站別</th>
+        <th data-k="date">日期</th>
+        <th data-k="furnace">爐號</th>
+        <th data-k="model">模號</th>
+        <th data-k="wo">工單號</th>
+        <th data-k="verdict">判定</th>
+        <th data-k="status">簽核狀態</th>
+        <th data-k="driName">DRI</th>
+        <th data-k="driChoice">DRI回應</th>
+        <th data-k="releaseCondition">放行條件</th>
+        <th>佐證檔案</th>
+        <th data-k="mgrName">大主管</th>
+        <th data-k="mgrChoice">大主管回應</th>
+        <th>操作</th>
+      </tr></thead>
+      <tbody id="tbody"><tr><td colspan="15" class="loading">讀取中…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbxWZB8U3HaU7m9TZsQ85PzRCvFJf8zIt3dd8WppQdu6XuPLwcKku-bCIzbE4v7qVP3Z/exec';
+let allRows = [];
+let sortKey = 'ticketNo';
+let sortAsc = false;
+
+function escHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function statusPill(status){
+  const cls = status === '已完結' ? 'done' : 'wait';
+  return `<span class="pill ${cls}">${escHtml(status)}</span>`;
+}
+
+async function load(){
+  try{
+    const res = await fetch(API_URL + '?action=listTickets');
+    const data = await res.json();
+    if(!data.ok){ document.getElementById('tbody').innerHTML = `<tr><td colspan="15" class="loading">讀取失敗：${escHtml(data.error)}</td></tr>`; return; }
+    allRows = data.rows || [];
+    render();
+  }catch(err){
+    document.getElementById('tbody').innerHTML = `<tr><td colspan="15" class="loading">連線失敗：${escHtml(err.message)}</td></tr>`;
+  }
+}
+
+function render(){
+  const kw = document.getElementById('filterText').value.trim().toLowerCase();
+  const statusFilter = document.getElementById('filterStatus').value;
+  let rows = allRows.filter(r=>{
+    if(statusFilter && r.status !== statusFilter) return false;
+    if(!kw) return true;
+    return ['ticketNo','furnace','model','wo','driName','mgrName'].some(k => String(r[k]||'').toLowerCase().includes(kw));
+  });
+  rows.sort((a,b)=>{
+    const av = String(a[sortKey]||''), bv = String(b[sortKey]||'');
+    const cmp = av.localeCompare(bv, 'zh-Hant');
+    return sortAsc ? cmp : -cmp;
+  });
+  document.getElementById('countText').textContent = `顯示 ${rows.length} / ${allRows.length} 筆`;
+  document.getElementById('tbody').innerHTML = rows.map(r=>`
+    <tr>
+      <td>${escHtml(r.ticketNo)}</td>
+      <td>${escHtml(r.station)}</td>
+      <td>${escHtml(r.date)}</td>
+      <td>${escHtml(r.furnace)}</td>
+      <td>${escHtml(r.model)}</td>
+      <td>${escHtml(r.wo)}</td>
+      <td>${escHtml(r.verdict)}</td>
+      <td>${statusPill(r.status)}</td>
+      <td>${escHtml(r.driName)}</td>
+      <td>${escHtml(r.driChoice)}</td>
+      <td>${escHtml(r.releaseCondition)}</td>
+      <td>${r.evidenceUrl ? `<a class="link-btn" href="${escHtml(r.evidenceUrl)}" target="_blank">查看 →</a>` : ''}</td>
+      <td>${escHtml(r.mgrName)}</td>
+      <td>${escHtml(r.mgrChoice)}</td>
+      <td><a class="link-btn" href="https://tzuyukao-cmd.github.io/mim-quality-system/dri-response.html?ticket=${encodeURIComponent(r.ticketNo)}" target="_blank">查看/處理 →</a></td>
+    </tr>
+  `).join('') || `<tr><td colspan="15" class="loading">沒有符合條件的資料</td></tr>`;
+
+  document.querySelectorAll('th[data-k]').forEach(th=>{
+    th.classList.toggle('sorted', th.dataset.k === sortKey);
+    th.classList.toggle('asc', th.dataset.k === sortKey && sortAsc);
+  });
+}
+
+document.getElementById('filterText').addEventListener('input', render);
+document.getElementById('filterStatus').addEventListener('change', render);
+document.querySelectorAll('th[data-k]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    if(sortKey === th.dataset.k){ sortAsc = !sortAsc; }
+    else { sortKey = th.dataset.k; sortAsc = true; }
+    render();
+  });
+});
+
+load();
+</script>
+</body>
+</html>
