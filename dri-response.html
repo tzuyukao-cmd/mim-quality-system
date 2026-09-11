@@ -150,7 +150,7 @@ function renderDriForm(data){
     <div class="release-condition" id="releaseBox">
       <label>⚠️ 放行條件(必填)</label>
       <textarea id="f_condition" placeholder="請說明此次特採放行的判斷依據/條件"></textarea>
-      <label>⚠️ 佐證檔案(必填，限1個檔案)</label>
+      <label>佐證檔案(選填，限1個檔案)</label>
       <input type="file" id="f_evidence">
     </div>
     <label>備註(選填)</label>
@@ -178,7 +178,6 @@ function renderDriForm(data){
     if(!name || !password){ msgBox.className='msg err'; msgBox.textContent='請輸入姓名和密碼'; return; }
     if(!choice){ msgBox.className='msg err'; msgBox.textContent='請選擇判定'; return; }
     if(choice==='放行' && !condition){ msgBox.className='msg err'; msgBox.textContent='選擇放行時必須填寫放行條件'; return; }
-    if(choice==='放行' && !evidenceFile){ msgBox.className='msg err'; msgBox.textContent='選擇放行時必須上傳佐證檔案'; return; }
     document.getElementById('submitBtn').disabled = true;
     try{
       const payload = {ticketNo: data.ticketNo, name, password, choice, releaseCondition: condition, remark};
