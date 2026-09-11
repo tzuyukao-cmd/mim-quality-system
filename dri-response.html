@@ -56,6 +56,19 @@ async function apiPost(action, payload){
   return res.json();
 }
 
+function readFileAsBase64(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const dataUrl = reader.result; // "data:<mime>;base64,<data>"
+      const base64 = dataUrl.slice(dataUrl.indexOf(',')+1);
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function escHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -113,6 +126,7 @@ function renderReadonly(data){
       目前狀態：<b>${escHtml(data.status)}</b>
       ${data.driChoice ? `<br>DRI判定：${escHtml(data.driChoice)}` : ''}
       ${data.releaseCondition ? `<br>放行條件：${escHtml(data.releaseCondition)}` : ''}
+      ${data.evidenceUrl ? `<br>佐證檔案：<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : ''}
       ${data.mgrChoice ? `<br>大主管：${escHtml(data.mgrChoice)}` : ''}
     </div>
   `;
@@ -136,6 +150,8 @@ function renderDriForm(data){
     <div class="release-condition" id="releaseBox">
       <label>⚠️ 放行條件(必填)</label>
       <textarea id="f_condition" placeholder="請說明此次特採放行的判斷依據/條件"></textarea>
+      <label>⚠️ 佐證檔案(必填，限1個檔案)</label>
+      <input type="file" id="f_evidence">
     </div>
     <label>備註(選填)</label>
     <textarea id="f_remark"></textarea>
@@ -155,14 +171,23 @@ function renderDriForm(data){
     const password = document.getElementById('f_password').value;
     const condition = document.getElementById('f_condition').value.trim();
     const remark = document.getElementById('f_remark').value.trim();
+    const evidenceInput = document.getElementById('f_evidence');
+    const evidenceFile = evidenceInput && evidenceInput.files[0];
     const msgBox = document.getElementById('msgBox');
     msgBox.className = 'msg';
     if(!name || !password){ msgBox.className='msg err'; msgBox.textContent='請輸入姓名和密碼'; return; }
     if(!choice){ msgBox.className='msg err'; msgBox.textContent='請選擇判定'; return; }
     if(choice==='放行' && !condition){ msgBox.className='msg err'; msgBox.textContent='選擇放行時必須填寫放行條件'; return; }
+    if(choice==='放行' && !evidenceFile){ msgBox.className='msg err'; msgBox.textContent='選擇放行時必須上傳佐證檔案'; return; }
     document.getElementById('submitBtn').disabled = true;
     try{
-      const res = await apiPost('driRespond', {ticketNo: data.ticketNo, name, password, choice, releaseCondition: condition, remark});
+      const payload = {ticketNo: data.ticketNo, name, password, choice, releaseCondition: condition, remark};
+      if(evidenceFile){
+        payload.evidenceFileName = evidenceFile.name;
+        payload.evidenceMimeType = evidenceFile.type;
+        payload.evidenceFileBase64 = await readFileAsBase64(evidenceFile);
+      }
+      const res = await apiPost('driRespond', payload);
       if(res.ok){
         msgBox.className='msg ok'; msgBox.textContent='已送出，處理完成。';
         setTimeout(()=>init(), 1200);
@@ -184,7 +209,8 @@ function renderManagerForm(data){
     ${renderFactsTable(data.ticket)}
     <div class="readonly-box">
       DRI：<b>${escHtml(data.driName)}</b>（${escHtml(data.driTime)}）<br>
-      放行條件：${escHtml(data.releaseCondition)}
+      放行條件：${escHtml(data.releaseCondition)}<br>
+      佐證檔案：${data.evidenceUrl ? `<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : '（無）'}
       ${data.driRemark ? `<br>DRI備註：${escHtml(data.driRemark)}` : ''}
     </div>
     <label>核准人姓名</label>
