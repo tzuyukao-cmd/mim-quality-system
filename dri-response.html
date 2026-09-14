@@ -126,6 +126,7 @@ function renderReadonly(data){
       目前狀態：<b>${escHtml(data.status)}</b>
       ${data.driChoice ? `<br>DRI判定：${escHtml(data.driChoice)}` : ''}
       ${data.releaseCondition ? `<br>放行條件：${escHtml(data.releaseCondition)}` : ''}
+      ${data.reworkProcess ? `<br>重工流程：${escHtml(data.reworkProcess)}` : ''}
       ${data.evidenceUrl ? `<br>佐證檔案：<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : ''}
       ${data.mgrChoice ? `<br>大主管：${escHtml(data.mgrChoice)}` : ''}
     </div>
@@ -150,7 +151,13 @@ function renderDriForm(data){
     <div class="release-condition" id="releaseBox">
       <label>⚠️ 放行條件(必填)</label>
       <textarea id="f_condition" placeholder="請說明此次特採放行的判斷依據/條件"></textarea>
-      <label>佐證檔案(選填，限1個檔案)</label>
+    </div>
+    <div class="release-condition" id="reworkBox">
+      <label>⚠️ 重工流程(必填)</label>
+      <textarea id="f_reworkProcess" placeholder="請說明重工的方式/流程，也可以搭配下方上傳圖表輔助說明"></textarea>
+    </div>
+    <div class="release-condition" id="evidenceBox">
+      <label>佐證檔案/流程圖表(選填，限1個檔案)</label>
       <input type="file" id="f_evidence">
     </div>
     <label>備註(選填)</label>
@@ -164,12 +171,15 @@ function renderDriForm(data){
       choice = btn.dataset.v;
       document.querySelectorAll('#choiceRow .choice-btn').forEach(b=>b.classList.toggle('sel', b===btn));
       document.getElementById('releaseBox').classList.toggle('show', choice==='放行');
+      document.getElementById('reworkBox').classList.toggle('show', choice==='重工');
+      document.getElementById('evidenceBox').classList.toggle('show', choice==='放行' || choice==='重工');
     };
   });
   document.getElementById('submitBtn').onclick = async ()=>{
     const name = document.getElementById('f_name').value.trim();
     const password = document.getElementById('f_password').value;
     const condition = document.getElementById('f_condition').value.trim();
+    const reworkProcess = document.getElementById('f_reworkProcess').value.trim();
     const remark = document.getElementById('f_remark').value.trim();
     const evidenceInput = document.getElementById('f_evidence');
     const evidenceFile = evidenceInput && evidenceInput.files[0];
@@ -178,9 +188,10 @@ function renderDriForm(data){
     if(!name || !password){ msgBox.className='msg err'; msgBox.textContent='請輸入姓名和密碼'; return; }
     if(!choice){ msgBox.className='msg err'; msgBox.textContent='請選擇判定'; return; }
     if(choice==='放行' && !condition){ msgBox.className='msg err'; msgBox.textContent='選擇放行時必須填寫放行條件'; return; }
+    if(choice==='重工' && !reworkProcess){ msgBox.className='msg err'; msgBox.textContent='選擇重工時必須填寫重工流程'; return; }
     document.getElementById('submitBtn').disabled = true;
     try{
-      const payload = {ticketNo: data.ticketNo, name, password, choice, releaseCondition: condition, remark};
+      const payload = {ticketNo: data.ticketNo, name, password, choice, releaseCondition: condition, reworkProcess, remark};
       if(evidenceFile){
         payload.evidenceFileName = evidenceFile.name;
         payload.evidenceMimeType = evidenceFile.type;
