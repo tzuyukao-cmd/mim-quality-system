@@ -56,12 +56,13 @@
         <th data-k="driName">DRI</th>
         <th data-k="driChoice">DRI回應</th>
         <th data-k="releaseCondition">放行條件</th>
+        <th data-k="reworkProcess">重工流程</th>
         <th>佐證檔案</th>
         <th data-k="mgrName">大主管</th>
         <th data-k="mgrChoice">大主管回應</th>
         <th>操作</th>
       </tr></thead>
-      <tbody id="tbody"><tr><td colspan="15" class="loading">讀取中…</td></tr></tbody>
+      <tbody id="tbody"><tr><td colspan="16" class="loading">讀取中…</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -84,11 +85,11 @@ async function load(){
   try{
     const res = await fetch(API_URL + '?action=listTickets');
     const data = await res.json();
-    if(!data.ok){ document.getElementById('tbody').innerHTML = `<tr><td colspan="15" class="loading">讀取失敗：${escHtml(data.error)}</td></tr>`; return; }
+    if(!data.ok){ document.getElementById('tbody').innerHTML = `<tr><td colspan="16" class="loading">讀取失敗：${escHtml(data.error)}</td></tr>`; return; }
     allRows = data.rows || [];
     render();
   }catch(err){
-    document.getElementById('tbody').innerHTML = `<tr><td colspan="15" class="loading">連線失敗：${escHtml(err.message)}</td></tr>`;
+    document.getElementById('tbody').innerHTML = `<tr><td colspan="16" class="loading">連線失敗：${escHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -119,12 +120,13 @@ function render(){
       <td>${escHtml(r.driName)}</td>
       <td>${escHtml(r.driChoice)}</td>
       <td>${escHtml(r.releaseCondition)}</td>
+      <td>${escHtml(r.reworkProcess)}</td>
       <td>${r.evidenceUrl ? `<a class="link-btn" href="${escHtml(r.evidenceUrl)}" target="_blank">查看 →</a>` : ''}</td>
       <td>${escHtml(r.mgrName)}</td>
       <td>${escHtml(r.mgrChoice)}</td>
       <td><a class="link-btn" href="https://tzuyukao-cmd.github.io/mim-quality-system/dri-response.html?ticket=${encodeURIComponent(r.ticketNo)}" target="_blank">查看/處理 →</a></td>
     </tr>
-  `).join('') || `<tr><td colspan="15" class="loading">沒有符合條件的資料</td></tr>`;
+  `).join('') || `<tr><td colspan="16" class="loading">沒有符合條件的資料</td></tr>`;
 
   document.querySelectorAll('th[data-k]').forEach(th=>{
     th.classList.toggle('sorted', th.dataset.k === sortKey);
