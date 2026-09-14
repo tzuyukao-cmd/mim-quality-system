@@ -13,7 +13,7 @@
   .facts td{padding:6px 4px;border-bottom:1px solid #eee;font-size:14px;}
   .facts td:first-child{color:#888;width:90px;}
   label{display:block;font-size:13px;color:#555;margin:12px 0 4px;font-weight:600;}
-  select,input[type=text],input[type=password],textarea{width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px;}
+  select,input[type=text],input[type=password],input[type=number],textarea{width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px;}
   textarea{min-height:60px;resize:vertical;}
   .choice-row{display:flex;gap:8px;margin-top:6px;}
   .choice-btn{flex:1;padding:10px;border:1.5px solid #ccc;border-radius:6px;background:#fff;cursor:pointer;font-weight:700;font-size:14px;}
@@ -125,6 +125,7 @@ function renderReadonly(data){
       此單已由 <b>${escHtml(who)}</b> 於 <b>${escHtml(when)}</b> 處理，
       目前狀態：<b>${escHtml(data.status)}</b>
       ${data.driChoice ? `<br>DRI判定：${escHtml(data.driChoice)}` : ''}
+      ${data.batchQty ? `<br>批量/不良數：${escHtml(data.batchQty)} / ${escHtml(data.defectCount)}（不良率 ${escHtml(data.defectRate)}）` : ''}
       ${data.releaseCondition ? `<br>放行條件：${escHtml(data.releaseCondition)}` : ''}
       ${data.reworkProcess ? `<br>重工流程：${escHtml(data.reworkProcess)}` : ''}
       ${data.evidenceUrl ? `<br>佐證檔案：<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : ''}
@@ -149,6 +150,11 @@ function renderDriForm(data){
       <button type="button" class="choice-btn" data-v="報廢">報廢</button>
     </div>
     <div class="release-condition" id="releaseBox">
+      <label>⚠️ 批量(必填)</label>
+      <input type="number" id="f_batchQty" min="0" placeholder="這批總件數">
+      <label>⚠️ 不良數(必填)</label>
+      <input type="number" id="f_defectCount" min="0" placeholder="不良件數">
+      <div class="small" id="defectRateHint" style="color:#888;font-size:12px;margin-top:4px;">不良率：--</div>
       <label>⚠️ 放行條件(必填)</label>
       <textarea id="f_condition" placeholder="請說明此次特採放行的判斷依據/條件"></textarea>
     </div>
@@ -175,11 +181,25 @@ function renderDriForm(data){
       document.getElementById('evidenceBox').classList.toggle('show', choice==='放行' || choice==='重工');
     };
   });
+  function updateDefectRateHint(){
+    const b = Number(document.getElementById('f_batchQty').value);
+    const d = Number(document.getElementById('f_defectCount').value);
+    const hint = document.getElementById('defectRateHint');
+    if(b > 0 && !isNaN(d)){
+      hint.textContent = '不良率：' + (d / b * 100).toFixed(2) + '%';
+    }else{
+      hint.textContent = '不良率：--';
+    }
+  }
+  document.getElementById('f_batchQty').addEventListener('input', updateDefectRateHint);
+  document.getElementById('f_defectCount').addEventListener('input', updateDefectRateHint);
   document.getElementById('submitBtn').onclick = async ()=>{
     const name = document.getElementById('f_name').value.trim();
     const password = document.getElementById('f_password').value;
     const condition = document.getElementById('f_condition').value.trim();
     const reworkProcess = document.getElementById('f_reworkProcess').value.trim();
+    const batchQty = document.getElementById('f_batchQty').value.trim();
+    const defectCount = document.getElementById('f_defectCount').value.trim();
     const remark = document.getElementById('f_remark').value.trim();
     const evidenceInput = document.getElementById('f_evidence');
     const evidenceFile = evidenceInput && evidenceInput.files[0];
@@ -188,10 +208,12 @@ function renderDriForm(data){
     if(!name || !password){ msgBox.className='msg err'; msgBox.textContent='請輸入姓名和密碼'; return; }
     if(!choice){ msgBox.className='msg err'; msgBox.textContent='請選擇判定'; return; }
     if(choice==='放行' && !condition){ msgBox.className='msg err'; msgBox.textContent='選擇放行時必須填寫放行條件'; return; }
+    if(choice==='放行' && (!batchQty || !defectCount)){ msgBox.className='msg err'; msgBox.textContent='選擇放行時必須填寫批量與不良數'; return; }
+    if(choice==='放行' && Number(defectCount) > Number(batchQty)){ msgBox.className='msg err'; msgBox.textContent='不良數不能大於批量'; return; }
     if(choice==='重工' && !reworkProcess){ msgBox.className='msg err'; msgBox.textContent='選擇重工時必須填寫重工流程'; return; }
     document.getElementById('submitBtn').disabled = true;
     try{
-      const payload = {ticketNo: data.ticketNo, name, password, choice, releaseCondition: condition, reworkProcess, remark};
+      const payload = {ticketNo: data.ticketNo, name, password, choice, releaseCondition: condition, reworkProcess, batchQty, defectCount, remark};
       if(evidenceFile){
         payload.evidenceFileName = evidenceFile.name;
         payload.evidenceMimeType = evidenceFile.type;
@@ -219,6 +241,7 @@ function renderManagerForm(data){
     ${renderFactsTable(data.ticket)}
     <div class="readonly-box">
       DRI：<b>${escHtml(data.driName)}</b>（${escHtml(data.driTime)}）<br>
+      批量/不良數：${escHtml(data.batchQty)} / ${escHtml(data.defectCount)}（不良率 ${escHtml(data.defectRate)}）<br>
       放行條件：${escHtml(data.releaseCondition)}<br>
       佐證檔案：${data.evidenceUrl ? `<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : '（無）'}
       ${data.driRemark ? `<br>DRI備註：${escHtml(data.driRemark)}` : ''}
