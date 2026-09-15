@@ -2283,6 +2283,10 @@ async function sinterImportByDate(){
   }
 }
 
+// 存最近一次「查看明細」抓到的正式資料(Google Sheet)，給下載Excel按鈕用，
+// 確保下載內容跟畫面上看到的一定一致，不會像現場表單的下載鈕那樣抓到瀏覽器裡殘留的舊暫存草稿。
+let sinterLastDetail = null;
+
 async function sinterViewDetail(i){
   const r = sinterState.rows[i];
   if(!r){ showToast('❌ 找不到這筆紀錄'); return; }
@@ -2291,8 +2295,10 @@ async function sinterViewDetail(i){
   try{
     const res = await sinterApiPost('getSinterDetail', {date:r.date, furnace:r.furnace, model:r.model||''});
     if(res && res.ok){
-      const bodyHtml = res.isDX07 ? sinterBuildDX07DetailHtml(res.rows||[], res.summary||null) : res.isP885 ? sinterBuildP885DetailHtml(res.summary||null, res.rows||[]) : sinterBuildDetailHtml(res.rows||[]);
-      showDataModal('燒結量測明細 - 爐號'+ (r.furnace||'') +' '+ (r.model||''), bodyHtml);
+      sinterLastDetail = {res:res, furnace:r.furnace||'', model:r.model||'', date:r.date||''};
+      const bodyHtml = res.isDX07 ? sinterBuildDX07DetailHtml(res.rows||[], res.summary||null) : res.isP885 ? sinterBuildP885DetailHtml(res.summary||null, res.rows||[]) : sinterBuildDetailHtml(res.detail||null);
+      const downloadBtnHtml = '<button onclick="sinterDownloadDetailExcel()" style="margin-bottom:10px;padding:6px 14px;border:1px solid #2f6fb3;background:#eaf2fb;color:#2f6fb3;border-radius:6px;cursor:pointer;font-size:13px;">⬇️ 下載 Excel(與本畫面一致)</button>';
+      showDataModal('燒結量測明細 - 爐號'+ (r.furnace||'') +' '+ (r.model||''), downloadBtnHtml + bodyHtml);
     }else{
       showToast('❌ 查詢失敗:'+((res&&res.error)||'未知錯誤'));
     }
@@ -2301,30 +2307,99 @@ async function sinterViewDetail(i){
   }
 }
 
-function sinterBuildDetailHtml(rows){
-  if(!rows || rows.length===0) return '<div class="small" style="color:#999;padding:8px 0;">無資料</div>';
-  const first = rows[0];
+// 直接用「查看明細」剛剛抓到的正式資料產生Excel，來源跟畫面上顯示的完全同一份，
+// 不會像P885/DX07現場表單自己的「下載Excel」那樣讀瀏覽器localStorage裡的暫存草稿，
+// 導致下載內容跟系統裡查看明細顯示的不一致。
+function sinterDownloadDetailExcel(){
+  if(typeof XLSX==='undefined'){ showToast('❌ Excel匯出元件載入失敗，請重新整理頁面再試一次'); return; }
+  const ctx = sinterLastDetail;
+  if(!ctx || !ctx.res){ showToast('❌ 找不到明細資料，請先點查看明細'); return; }
+  const res = ctx.res;
+  const aoa = [];
+  if(res.isP885){
+    const s = res.summary||{};
+    aoa.push(['燒結量測明細（P885/P886）']);
+    aoa.push(['品名', s.product||'', '工單號碼', s.wo||'']);
+    aoa.push(['進爐日', s.inDate||'', '出爐日', s.outDate||'', '爐號', ctx.furnace, '爐溫', s.temp||'']);
+    aoa.push(['模號-前R', s.moldFrontR||'', '模號-前L', s.moldFrontL||'', '模號-後R', s.moldBackR||'', '模號-後L', s.moldBackL||'']);
+    aoa.push(['硬度R', s.hardnessR||'', '硬度L', s.hardnessL||'']);
+    aoa.push(['密度R', s.densityR||'', '密度L', s.densityL||'']);
+    aoa.push(['外觀-前R', s.appearanceFrontR||'', '外觀-後L', s.appearanceBackL||'']);
+    aoa.push(['備註', s.remark||'', '檢驗', s.inspector||'', '審查', s.reviewer||'']);
+    aoa.push([]);
+    const order = ['尺寸(1)','尺寸(2)','三圓孔判定','B基準孔判定','尺寸(3)判定','尺寸(4)判定'];
+    order.forEach(function(cat){
+      const items = (res.rows||[]).filter(function(r){ return r.category===cat; });
+      if(!items.length) return;
+      aoa.push([cat]);
+      aoa.push(['盤別','位置','件','數值']);
+      items.forEach(function(r){ aoa.push([r.tray||'', r.pos||'', r.piece||'', r.value||'']); });
+      aoa.push([]);
+    });
+  }else if(res.isDX07){
+    const s = res.summary||{};
+    aoa.push(['燒結量測明細（DX07）']);
+    aoa.push(['品名', s.product||'', '工單號', s.wo||'']);
+    aoa.push(['出爐日', s.outDate||'', '進爐日', s.inDate||'', '爐溫', s.temp||'']);
+    aoa.push(['檢驗員', s.inspector||'', '審查', s.reviewer||'']);
+    aoa.push([]);
+    aoa.push(['類別','項目','區域','盤位','待測件','數值']);
+    (res.rows||[]).forEach(function(r){ aoa.push([r.category||'', r.item||'', r.zone||'', r.tray||'', r.point||'', r.value||'']); });
+  }else{
+    const d = res.detail||{};
+    aoa.push(['燒結量測明細']);
+    aoa.push(['品名', d.product||'', '工單號', d.workOrder||'', '出爐日', d.outDate||'']);
+    aoa.push(['硬度R', d.hardnessR||'', '硬度L', d.hardnessL||'']);
+    aoa.push(['密度R', d.densityR||'', '密度L', d.densityL||'']);
+    aoa.push(['碳含量R', d.carbonR||'', '碳含量L', d.carbonL||'']);
+    aoa.push(['孔位判定', d.holeResult||'', '外觀判定', d.appearanceResult||'']);
+    aoa.push(['異色%', d.defectColor||'', '撞傷%', d.defectDent||'', '毛邊%', d.defectBurr||'', '碳粉沾黏%', d.defectToner||'', '沾料凸%', d.defectBump||'']);
+    aoa.push(['檢驗', d.inspector||'', '審查', d.reviewer||'']);
+    aoa.push([]);
+    aoa.push(['尺寸','模次','邊別','抽1','抽2','抽3','抽4','抽5']);
+    (d.dims||[]).forEach(function(dim){
+      aoa.push([dim.dimCode||'', dim.mold||'', dim.side||''].concat(dim.values||[]));
+    });
+  }
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '燒結量測明細');
+  const safeTag = String(ctx.furnace||'').replace(/[\\\/:*?"<>|]/g,'_');
+  XLSX.writeFile(wb, `燒結量測明細_爐號${safeTag}_${ctx.date||''}.xlsx`);
+}
+
+// ★ 改版(2026-09-15)：Z840來源檔案改成「逐尺寸/模次/邊別表格+底部彙總區塊」，
+//   不再是逐件一列。收到單一detail物件(含dims陣列)，不是rows陣列。
+//   目前只顯示原始量測值，不做規格比對判合格/不合格(規格文字解析邏輯尚未實作)。
+function sinterBuildDetailHtml(detail){
+  if(!detail) return '<div class="small" style="color:#999;padding:8px 0;">無資料</div>';
   const summary = `
     <div class="small" style="margin-bottom:10px;line-height:1.8;">
-      品名：${escHtml(first.product)}　工單號：${escHtml(first.workOrder)}<br>
-      硬度R：${escHtml(first.hardnessR)}　硬度L：${escHtml(first.hardnessL)}<br>
-      密度R：${escHtml(first.densityR)}　密度L：${escHtml(first.densityL)}<br>
-      碳含量R：${escHtml(first.carbonR)}　碳含量L：${escHtml(first.carbonL)}<br>
-      孔洞結果：${escHtml(first.holeResult)}　外觀結果：${escHtml(first.appearanceResult)}<br>
-      檢驗員：${escHtml(first.inspector)}　審查：${escHtml(first.reviewer)}
+      品名：${escHtml(detail.product)}　工單號：${escHtml(detail.workOrder)}　出爐日：${escHtml(detail.outDate)}<br>
+      硬度R：${escHtml(detail.hardnessR)}　硬度L：${escHtml(detail.hardnessL)}<br>
+      密度R：${escHtml(detail.densityR)}　密度L：${escHtml(detail.densityL)}<br>
+      碳含量R：${escHtml(detail.carbonR)}　碳含量L：${escHtml(detail.carbonL)}<br>
+      孔位判定：${escHtml(detail.holeResult)}　外觀判定：${escHtml(detail.appearanceResult)}<br>
+      異色%：${escHtml(detail.defectColor)}　撞傷%：${escHtml(detail.defectDent)}　毛邊%：${escHtml(detail.defectBurr)}　碳粉沾黏%：${escHtml(detail.defectToner)}　沾料凸%：${escHtml(detail.defectBump)}<br>
+      檢驗：${escHtml(detail.inspector)}　審查：${escHtml(detail.reviewer)}
     </div>`;
-  const trs = rows.map(r=>`<tr>
-      <td>${escHtml(r.item)}</td>
-      <td>${escHtml(r.cavity)}</td>
-      <td>${escHtml(r.side)}</td>
-      <td>${escHtml(r.pieces1)}</td>
-      <td>${escHtml(r.pieces2)}</td>
-      <td>${escHtml(r.pieces3)}</td>
-      <td>${escHtml(r.pieces4)}</td>
-      <td>${escHtml(r.pieces5)}</td>
-    </tr>`).join('');
+  const dims = detail.dims || [];
+  if(dims.length===0) return summary + '<div class="small" style="color:#999;padding:8px 0;">無逐尺寸量測資料</div>';
+  const trs = dims.map(dim=>{
+    const vs = dim.values||[];
+    return `<tr>
+      <td>${escHtml(dim.dimCode)}</td>
+      <td>${escHtml(dim.mold)}</td>
+      <td>${escHtml(dim.side)}</td>
+      <td>${escHtml(vs[0])}</td>
+      <td>${escHtml(vs[1])}</td>
+      <td>${escHtml(vs[2])}</td>
+      <td>${escHtml(vs[3])}</td>
+      <td>${escHtml(vs[4])}</td>
+    </tr>`;
+  }).join('');
   return summary + `<div class="table-wrap"><table>
-    <thead><tr><th>量測項目</th><th>穴位</th><th>邊別</th><th>抽1</th><th>抽2</th><th>抽3</th><th>抽4</th><th>抽5</th></tr></thead>
+    <thead><tr><th>尺寸</th><th>模次</th><th>邊別</th><th>抽1</th><th>抽2</th><th>抽3</th><th>抽4</th><th>抽5</th></tr></thead>
     <tbody>${trs}</tbody>
   </table></div>`;
 }
