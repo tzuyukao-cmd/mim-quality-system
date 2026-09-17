@@ -104,6 +104,10 @@ async function init(){
 function render(data){
   if(data.status === '待DRI回應'){
     renderDriForm(data);
+  }else if(data.status === '待品保工程師確認'){
+    renderQAEngineerForm(data);
+  }else if(data.status === '待品保主管審查'){
+    renderQAManagerForm(data);
   }else if(data.status === '待大主管核准'){
     renderManagerForm(data);
   }else{
@@ -112,11 +116,10 @@ function render(data){
 }
 
 function renderReadonly(data){
-  const who = data.mgrName || data.driName || '';
-  const when = data.mgrTime || data.driTime || '';
-  const result = data.status === '已完結'
-    ? (data.mgrChoice === '駁回' ? '大主管駁回(退回DRI重新處理中)' : (data.driChoice || data.mgrChoice || ''))
-    : data.status;
+  const isQA = data.defectType === '外觀不良';
+  const who = data.mgrName || (isQA ? data.qaMgrName : data.driName) || '';
+  const when = data.mgrTime || (isQA ? data.qaMgrTime : data.driTime) || '';
+  const result = data.mgrChoice === '核准' ? '特採放行' : (isQA ? (data.qaEngChoice || '') : (data.driChoice || ''));
   app.innerHTML = `
     <h1>特採簽核</h1>
     <div class="ticket-no">${escHtml(data.ticketNo)}</div>
@@ -124,10 +127,14 @@ function renderReadonly(data){
     <div class="readonly-box">
       此單已由 <b>${escHtml(who)}</b> 於 <b>${escHtml(when)}</b> 處理，
       目前狀態：<b>${escHtml(data.status)}</b>
-      ${data.driChoice ? `<br>DRI判定：${escHtml(data.driChoice)}` : ''}
-      ${data.batchQty ? `<br>批量/不良數：${escHtml(data.batchQty)} / ${escHtml(data.defectCount)}（不良率 ${escHtml(data.defectRate)}）` : ''}
-      ${data.releaseCondition ? `<br>放行條件：${escHtml(data.releaseCondition)}` : ''}
-      ${data.reworkProcess ? `<br>重工流程：${escHtml(data.reworkProcess)}` : ''}
+      ${result ? `<br>結果：${escHtml(result)}` : ''}
+      ${isQA ? `
+        ${data.qaEngRemark ? `<br>放行理由/備註：${escHtml(data.qaEngRemark)}` : ''}
+      ` : `
+        ${data.batchQty ? `<br>批量/不良數：${escHtml(data.batchQty)} / ${escHtml(data.defectCount)}（不良率 ${escHtml(data.defectRate)}）` : ''}
+        ${data.releaseCondition ? `<br>放行條件：${escHtml(data.releaseCondition)}` : ''}
+        ${data.reworkProcess ? `<br>重工流程：${escHtml(data.reworkProcess)}` : ''}
+      `}
       ${data.evidenceUrl ? `<br>佐證檔案：<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : ''}
       ${data.mgrChoice ? `<br>大主管：${escHtml(data.mgrChoice)}` : ''}
     </div>
@@ -243,17 +250,24 @@ function renderDriForm(data){
 }
 
 function renderManagerForm(data){
-  app.innerHTML = `
-    <h1>特採簽核 - 大主管核准</h1>
-    <div class="ticket-no">${escHtml(data.ticketNo)}</div>
-    ${renderFactsTable(data.ticket)}
-    <div class="readonly-box">
+  const isQA = data.defectType === '外觀不良';
+  const infoHtml = isQA ? `
+      品保工程師：<b>${escHtml(data.qaEngName)}</b>（${escHtml(data.qaEngTime)}）<br>
+      品保主管：<b>${escHtml(data.qaMgrName)}</b>（${escHtml(data.qaMgrTime)}）<br>
+      放行理由：${escHtml(data.qaEngRemark)}<br>
+      佐證檔案：${data.evidenceUrl ? `<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : '（無）'}
+    ` : `
       DRI：<b>${escHtml(data.driName)}</b>（${escHtml(data.driTime)}）<br>
       批量/不良數：${escHtml(data.batchQty)} / ${escHtml(data.defectCount)}（不良率 ${escHtml(data.defectRate)}）<br>
       放行條件：${escHtml(data.releaseCondition)}<br>
       佐證檔案：${data.evidenceUrl ? `<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : '（無）'}
       ${data.driRemark ? `<br>DRI備註：${escHtml(data.driRemark)}` : ''}
-    </div>
+    `;
+  app.innerHTML = `
+    <h1>特採簽核 - 大主管核准</h1>
+    <div class="ticket-no">${escHtml(data.ticketNo)}</div>
+    ${renderFactsTable(data.ticket)}
+    <div class="readonly-box">${infoHtml}</div>
     <label>核准人姓名</label>
     <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
     <label>密碼</label>
@@ -287,6 +301,136 @@ function renderManagerForm(data){
     document.getElementById('submitBtn').disabled = true;
     try{
       const res = await apiPost('managerRespond', {ticketNo: data.ticketNo, name, password, decision, remark});
+      if(res.ok){
+        msgBox.className='msg ok'; msgBox.textContent='已送出，處理完成。';
+        setTimeout(()=>init(), 1200);
+      }else{
+        msgBox.className='msg err'; msgBox.textContent=res.error;
+        document.getElementById('submitBtn').disabled = false;
+      }
+    }catch(err){
+      msgBox.className='msg err'; msgBox.textContent='連線失敗：'+err.message;
+      document.getElementById('submitBtn').disabled = false;
+    }
+  };
+}
+
+function renderQAEngineerForm(data){
+  app.innerHTML = `
+    <h1>特採簽核 - 品保工程師判定(外觀不良)</h1>
+    <div class="ticket-no">${escHtml(data.ticketNo)}</div>
+    ${renderFactsTable(data.ticket)}
+    <label>回應人姓名</label>
+    <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
+    <label>密碼</label>
+    <input type="password" id="f_password" placeholder="個人密碼(初始為工號)">
+    <label>判定</label>
+    <div class="choice-row" id="choiceRow">
+      <button type="button" class="choice-btn" data-v="放行">放行</button>
+      <button type="button" class="choice-btn" data-v="退回上一站">退回上一站</button>
+    </div>
+    <div class="release-condition" id="releaseBox">
+      <label>⚠️ 放行理由(必填)</label>
+      <textarea id="f_remark_release" placeholder="請說明此次特採放行的判斷依據/理由"></textarea>
+      <label>佐證檔案(選填，限1個檔案)</label>
+      <input type="file" id="f_evidence">
+    </div>
+    <div class="release-condition" id="backBox">
+      <label>備註(選填)</label>
+      <textarea id="f_remark_back" placeholder="可說明退回原因"></textarea>
+    </div>
+    <button class="submit-btn" id="submitBtn">送出</button>
+    <div class="msg" id="msgBox"></div>
+    <div style="text-align:center;margin-top:14px;"><a href="change-password.html" target="_blank" style="font-size:12px;color:#888;">忘記密碼／修改密碼</a></div>
+  `;
+  let choice = '';
+  document.querySelectorAll('#choiceRow .choice-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      choice = btn.dataset.v;
+      document.querySelectorAll('#choiceRow .choice-btn').forEach(b=>b.classList.toggle('sel', b===btn));
+      document.getElementById('releaseBox').classList.toggle('show', choice==='放行');
+      document.getElementById('backBox').classList.toggle('show', choice==='退回上一站');
+    };
+  });
+  document.getElementById('submitBtn').onclick = async ()=>{
+    const name = document.getElementById('f_name').value.trim();
+    const password = document.getElementById('f_password').value;
+    const msgBox = document.getElementById('msgBox');
+    msgBox.className = 'msg';
+    if(!name || !password){ msgBox.className='msg err'; msgBox.textContent='請輸入姓名和密碼'; return; }
+    if(!choice){ msgBox.className='msg err'; msgBox.textContent='請選擇判定'; return; }
+    const remark = choice==='放行'
+      ? document.getElementById('f_remark_release').value.trim()
+      : document.getElementById('f_remark_back').value.trim();
+    if(choice==='放行' && !remark){ msgBox.className='msg err'; msgBox.textContent='選擇放行時必須填寫放行理由'; return; }
+    const evidenceInput = document.getElementById('f_evidence');
+    const evidenceFile = evidenceInput && evidenceInput.files[0];
+    document.getElementById('submitBtn').disabled = true;
+    try{
+      const payload = {ticketNo: data.ticketNo, name, password, choice, remark};
+      if(choice==='放行' && evidenceFile){
+        payload.evidenceFileName = evidenceFile.name;
+        payload.evidenceMimeType = evidenceFile.type;
+        payload.evidenceFileBase64 = await readFileAsBase64(evidenceFile);
+      }
+      const res = await apiPost('qaEngineerRespond', payload);
+      if(res.ok){
+        msgBox.className='msg ok'; msgBox.textContent='已送出，處理完成。';
+        setTimeout(()=>init(), 1200);
+      }else{
+        msgBox.className='msg err'; msgBox.textContent=res.error;
+        document.getElementById('submitBtn').disabled = false;
+      }
+    }catch(err){
+      msgBox.className='msg err'; msgBox.textContent='連線失敗：'+err.message;
+      document.getElementById('submitBtn').disabled = false;
+    }
+  };
+}
+
+function renderQAManagerForm(data){
+  app.innerHTML = `
+    <h1>特採簽核 - 品保主管審查(外觀不良)</h1>
+    <div class="ticket-no">${escHtml(data.ticketNo)}</div>
+    ${renderFactsTable(data.ticket)}
+    <div class="readonly-box">
+      品保工程師：<b>${escHtml(data.qaEngName)}</b>（${escHtml(data.qaEngTime)}）<br>
+      放行理由：${escHtml(data.qaEngRemark)}<br>
+      佐證檔案：${data.evidenceUrl ? `<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : '（無）'}
+    </div>
+    <label>審查人姓名</label>
+    <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
+    <label>密碼</label>
+    <input type="password" id="f_password" placeholder="個人密碼(初始為工號)">
+    <label>審查結果</label>
+    <div class="choice-row" id="choiceRow">
+      <button type="button" class="choice-btn" data-v="核准">核准</button>
+      <button type="button" class="choice-btn" data-v="駁回">駁回</button>
+    </div>
+    <label>備註(選填)</label>
+    <textarea id="f_remark"></textarea>
+    <button class="submit-btn" id="submitBtn">送出</button>
+    <div class="msg" id="msgBox"></div>
+    <div style="text-align:center;margin-top:14px;"><a href="change-password.html" target="_blank" style="font-size:12px;color:#888;">忘記密碼／修改密碼</a></div>
+  `;
+  let decision = '';
+  document.querySelectorAll('#choiceRow .choice-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      decision = btn.dataset.v;
+      document.querySelectorAll('#choiceRow .choice-btn').forEach(b=>b.classList.toggle('sel', b===btn));
+    };
+  });
+  document.getElementById('submitBtn').onclick = async ()=>{
+    const name = document.getElementById('f_name').value.trim();
+    const password = document.getElementById('f_password').value;
+    const remark = document.getElementById('f_remark').value.trim();
+    const msgBox = document.getElementById('msgBox');
+    msgBox.className = 'msg';
+    if(!name || !password){ msgBox.className='msg err'; msgBox.textContent='請輸入姓名和密碼'; return; }
+    if(!decision){ msgBox.className='msg err'; msgBox.textContent='請選擇審查結果'; return; }
+    document.getElementById('submitBtn').disabled = true;
+    try{
+      const res = await apiPost('qaManagerRespond', {ticketNo: data.ticketNo, name, password, decision, remark});
       if(res.ok){
         msgBox.className='msg ok'; msgBox.textContent='已送出，處理完成。';
         setTimeout(()=>init(), 1200);
