@@ -150,11 +150,16 @@ function renderDriForm(data){
       <button type="button" class="choice-btn" data-v="報廢">報廢</button>
     </div>
     <div class="release-condition" id="releaseBox">
-      <label>⚠️ 批量(必填)</label>
-      <input type="number" id="f_batchQty" min="0" placeholder="這批總件數">
-      <label>⚠️ 不良數(必填)</label>
-      <input type="number" id="f_defectCount" min="0" placeholder="不良件數">
-      <div class="small" id="defectRateHint" style="color:#888;font-size:12px;margin-top:4px;">不良率：--</div>
+      ${data.autoBatchQty ? `
+        <label>批量／不良數（自動帶入，來源：生產工站量測明細）</label>
+        <div class="readonly-box" style="margin-bottom:8px;">批量：<b>${escHtml(data.autoBatchQty)}</b> 件　不良數：<b>${escHtml(data.autoDefectCount)}</b> 件　不良率：<b>${(data.autoDefectCount/data.autoBatchQty*100).toFixed(2)}%</b></div>
+      ` : `
+        <label>⚠️ 批量(必填)</label>
+        <input type="number" id="f_batchQty" min="0" placeholder="這批總件數">
+        <label>⚠️ 不良數(必填)</label>
+        <input type="number" id="f_defectCount" min="0" placeholder="不良件數">
+        <div class="small" id="defectRateHint" style="color:#888;font-size:12px;margin-top:4px;">不良率：--</div>
+      `}
       <label>⚠️ 放行條件(必填)</label>
       <textarea id="f_condition" placeholder="請說明此次特採放行的判斷依據/條件"></textarea>
     </div>
@@ -182,25 +187,27 @@ function renderDriForm(data){
       document.getElementById('evidenceBox').classList.toggle('show', choice==='放行' || choice==='重工');
     };
   });
-  function updateDefectRateHint(){
-    const b = Number(document.getElementById('f_batchQty').value);
-    const d = Number(document.getElementById('f_defectCount').value);
-    const hint = document.getElementById('defectRateHint');
-    if(b > 0 && !isNaN(d)){
-      hint.textContent = '不良率：' + (d / b * 100).toFixed(2) + '%';
-    }else{
-      hint.textContent = '不良率：--';
+  if(!data.autoBatchQty){
+    function updateDefectRateHint(){
+      const b = Number(document.getElementById('f_batchQty').value);
+      const d = Number(document.getElementById('f_defectCount').value);
+      const hint = document.getElementById('defectRateHint');
+      if(b > 0 && !isNaN(d)){
+        hint.textContent = '不良率：' + (d / b * 100).toFixed(2) + '%';
+      }else{
+        hint.textContent = '不良率：--';
+      }
     }
+    document.getElementById('f_batchQty').addEventListener('input', updateDefectRateHint);
+    document.getElementById('f_defectCount').addEventListener('input', updateDefectRateHint);
   }
-  document.getElementById('f_batchQty').addEventListener('input', updateDefectRateHint);
-  document.getElementById('f_defectCount').addEventListener('input', updateDefectRateHint);
   document.getElementById('submitBtn').onclick = async ()=>{
     const name = document.getElementById('f_name').value.trim();
     const password = document.getElementById('f_password').value;
     const condition = document.getElementById('f_condition').value.trim();
     const reworkProcess = document.getElementById('f_reworkProcess').value.trim();
-    const batchQty = document.getElementById('f_batchQty').value.trim();
-    const defectCount = document.getElementById('f_defectCount').value.trim();
+    const batchQty = data.autoBatchQty ? String(data.autoBatchQty) : document.getElementById('f_batchQty').value.trim();
+    const defectCount = data.autoBatchQty ? String(data.autoDefectCount) : document.getElementById('f_defectCount').value.trim();
     const remark = document.getElementById('f_remark').value.trim();
     const evidenceInput = document.getElementById('f_evidence');
     const evidenceFile = evidenceInput && evidenceInput.files[0];
