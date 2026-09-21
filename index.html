@@ -2293,7 +2293,7 @@ async function sinterViewDetail(i){
   if(!r.date || !r.furnace){ showToast('⚠️ 這筆紀錄缺少日期或爐號，無法查詢來源資料'); return; }
   showToast('🔍 查詢中…');
   try{
-    const res = await sinterApiPost('getSinterDetail', {date:r.date, furnace:r.furnace, model:r.model||''});
+    const res = await sinterApiPost('getSinterDetail', {date:r.date, furnace:r.furnace, model:r.model||'', sourceFileId:r.sourceFileId||''});
     if(res && res.ok){
       sinterLastDetail = {res:res, furnace:r.furnace||'', model:r.model||'', date:r.date||''};
       const bodyHtml = res.isDX07 ? sinterBuildDX07DetailHtml(res.rows||[], res.summary||null) : res.isP885 ? sinterBuildP885DetailHtml(res.summary||null, res.rows||[], !!res.isSizeFallback) : sinterBuildDetailHtml(res.rows||[]);
