@@ -108,6 +108,8 @@ function render(data){
     renderQAEngineerForm(data);
   }else if(data.status === '待品保主管審查'){
     renderQAManagerForm(data);
+  }else if(data.status === '待技術審查'){
+    renderTechReviewForm(data);
   }else if(data.status === '待大主管核准'){
     renderManagerForm(data);
   }else{
@@ -119,7 +121,10 @@ function renderReadonly(data){
   const isQA = data.defectType === '外觀不良';
   const who = data.mgrName || (isQA ? data.qaMgrName : data.driName) || '';
   const when = data.mgrTime || (isQA ? data.qaMgrTime : data.driTime) || '';
-  const result = data.mgrChoice === '核准' ? '特採放行' : (isQA ? (data.qaEngChoice || '') : (data.driChoice || ''));
+  // ★ 2026-09-23修改：尺寸NG路徑核准後的結果不再一定是「特採放行」，
+  //   要依DRI原本判定(driChoice)顯示重工中/已報廢/特採放行；外觀不良路徑維持原樣。
+  const nonQaApprovedResult = data.driChoice === '重工' ? '重工中' : (data.driChoice === '報廢' ? '已報廢' : '特採放行');
+  const result = data.mgrChoice === '核准' ? (isQA ? '特採放行' : nonQaApprovedResult) : (isQA ? (data.qaEngChoice || '') : (data.driChoice || ''));
   app.innerHTML = `
     <h1>特採簽核</h1>
     <div class="ticket-no">${escHtml(data.ticketNo)}</div>
@@ -134,6 +139,7 @@ function renderReadonly(data){
         ${data.batchQty ? `<br>批量/不良數：${escHtml(data.batchQty)} / ${escHtml(data.defectCount)}（不良率 ${escHtml(data.defectRate)}）` : ''}
         ${data.releaseCondition ? `<br>放行條件：${escHtml(data.releaseCondition)}` : ''}
         ${data.reworkProcess ? `<br>重工流程：${escHtml(data.reworkProcess)}` : ''}
+        ${data.techReviewName ? `<br>技術審查：${escHtml(data.techReviewName)}（${escHtml(data.techReviewChoice)}，${escHtml(data.techReviewTime)}）` : ''}
       `}
       ${data.evidenceUrl ? `<br>佐證檔案：<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : ''}
       ${data.mgrChoice ? `<br>大主管：${escHtml(data.mgrChoice)}` : ''}
@@ -142,17 +148,21 @@ function renderReadonly(data){
 }
 
 function renderDriForm(data){
+  // ★ 2026-09-23補上：data.driChoice有值代表這是技術審查或大主管駁回後的重新回應
+  // (前一次回應內容還留著，只是狀態被退回)，這次只能選重工/報廢，不能再選放行重送。
+  const isRetryAfterReject = !!data.driChoice;
   app.innerHTML = `
     <h1>特採簽核 - DRI判定</h1>
     <div class="ticket-no">${escHtml(data.ticketNo)}</div>
     ${renderFactsTable(data.ticket)}
+    ${isRetryAfterReject ? `<div class="msg err" style="display:block;">此單先前放行後被駁回，這次只能選擇重工或報廢。</div>` : ''}
     <label>回應人姓名</label>
     <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
     <label>密碼</label>
     <input type="password" id="f_password" placeholder="個人密碼(初始為工號)">
     <label>判定</label>
     <div class="choice-row" id="choiceRow">
-      <button type="button" class="choice-btn" data-v="放行">放行</button>
+      ${isRetryAfterReject ? '' : `<button type="button" class="choice-btn" data-v="放行">放行</button>`}
       <button type="button" class="choice-btn" data-v="重工">重工</button>
       <button type="button" class="choice-btn" data-v="報廢">報廢</button>
     </div>
@@ -258,10 +268,13 @@ function renderManagerForm(data){
       佐證檔案：${data.evidenceUrl ? `<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : '（無）'}
     ` : `
       DRI：<b>${escHtml(data.driName)}</b>（${escHtml(data.driTime)}）<br>
-      批量/不良數：${escHtml(data.batchQty)} / ${escHtml(data.defectCount)}（不良率 ${escHtml(data.defectRate)}）<br>
-      放行條件：${escHtml(data.releaseCondition)}<br>
+      DRI判定：<b>${escHtml(data.driChoice)}</b><br>
+      技術審查：<b>${escHtml(data.techReviewName)}</b>（${escHtml(data.techReviewTime)}）<br>
+      ${data.driChoice === '放行' ? `批量/不良數：${escHtml(data.batchQty)} / ${escHtml(data.defectCount)}（不良率 ${escHtml(data.defectRate)}）<br>放行條件：${escHtml(data.releaseCondition)}<br>` : ''}
+      ${data.driChoice === '重工' ? `重工流程：${escHtml(data.reworkProcess)}<br>` : ''}
       佐證檔案：${data.evidenceUrl ? `<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : '（無）'}
       ${data.driRemark ? `<br>DRI備註：${escHtml(data.driRemark)}` : ''}
+      ${data.techReviewRemark ? `<br>技術審查備註：${escHtml(data.techReviewRemark)}` : ''}
     `;
   app.innerHTML = `
     <h1>特採簽核 - 大主管核准</h1>
@@ -301,6 +314,76 @@ function renderManagerForm(data){
     document.getElementById('submitBtn').disabled = true;
     try{
       const res = await apiPost('managerRespond', {ticketNo: data.ticketNo, name, password, decision, remark});
+      if(res.ok){
+        msgBox.className='msg ok'; msgBox.textContent='已送出，處理完成。';
+        setTimeout(()=>init(), 1200);
+      }else{
+        msgBox.className='msg err'; msgBox.textContent=res.error;
+        document.getElementById('submitBtn').disabled = false;
+      }
+    }catch(err){
+      msgBox.className='msg err'; msgBox.textContent='連線失敗：'+err.message;
+      document.getElementById('submitBtn').disabled = false;
+    }
+  };
+}
+
+// 技術審查核准/駁回畫面(尺寸NG路徑第二線，2026-09-23新增，比照renderManagerForm的模式，
+// 顯示DRI放行資訊，核准/駁回二選一送出techReviewRespond)
+function renderTechReviewForm(data){
+  // ★ 2026-09-23再修改：DRI三選一(放行/重工/報廢)現在都會送到技術審查，
+  //   細節欄位要依data.driChoice分流顯示，不能再假設一定是放行。
+  const choiceDetail = data.driChoice === '放行' ? `
+      批量/不良數：${escHtml(data.batchQty)} / ${escHtml(data.defectCount)}（不良率 ${escHtml(data.defectRate)}）<br>
+      放行條件：${escHtml(data.releaseCondition)}<br>
+    ` : data.driChoice === '重工' ? `
+      重工流程：${escHtml(data.reworkProcess)}<br>
+    ` : '';
+  const infoHtml = `
+      DRI：<b>${escHtml(data.driName)}</b>（${escHtml(data.driTime)}）<br>
+      DRI判定：<b>${escHtml(data.driChoice)}</b><br>
+      ${choiceDetail}
+      佐證檔案：${data.evidenceUrl ? `<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : '（無）'}
+      ${data.driRemark ? `<br>DRI備註：${escHtml(data.driRemark)}` : ''}
+    `;
+  app.innerHTML = `
+    <h1>特採簽核 - 技術審查</h1>
+    <div class="ticket-no">${escHtml(data.ticketNo)}</div>
+    ${renderFactsTable(data.ticket)}
+    <div class="readonly-box">${infoHtml}</div>
+    <label>審查人姓名</label>
+    <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
+    <label>密碼</label>
+    <input type="password" id="f_password" placeholder="個人密碼(初始為工號)">
+    <label>審查結果</label>
+    <div class="choice-row" id="choiceRow">
+      <button type="button" class="choice-btn" data-v="核准">核准</button>
+      <button type="button" class="choice-btn" data-v="駁回">駁回</button>
+    </div>
+    <label>備註(選填)</label>
+    <textarea id="f_remark"></textarea>
+    <button class="submit-btn" id="submitBtn">送出</button>
+    <div class="msg" id="msgBox"></div>
+    <div style="text-align:center;margin-top:14px;"><a href="change-password.html" target="_blank" style="font-size:12px;color:#888;">忘記密碼／修改密碼</a></div>
+  `;
+  let decision = '';
+  document.querySelectorAll('#choiceRow .choice-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      decision = btn.dataset.v;
+      document.querySelectorAll('#choiceRow .choice-btn').forEach(b=>b.classList.toggle('sel', b===btn));
+    };
+  });
+  document.getElementById('submitBtn').onclick = async ()=>{
+    const name = document.getElementById('f_name').value.trim();
+    const password = document.getElementById('f_password').value;
+    const remark = document.getElementById('f_remark').value.trim();
+    const msgBox = document.getElementById('msgBox');
+    msgBox.className = 'msg';
+    if(!name || !password){ msgBox.className='msg err'; msgBox.textContent='請輸入姓名和密碼'; return; }
+    if(!decision){ msgBox.className='msg err'; msgBox.textContent='請選擇審查結果'; return; }
+    document.getElementById('submitBtn').disabled = true;
+    try{
+      const res = await apiPost('techReviewRespond', {ticketNo: data.ticketNo, name, password, decision, remark});
       if(res.ok){
         msgBox.className='msg ok'; msgBox.textContent='已送出，處理完成。';
         setTimeout(()=>init(), 1200);
