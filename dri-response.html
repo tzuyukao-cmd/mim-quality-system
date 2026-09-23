@@ -73,13 +73,16 @@ function escHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-function renderFactsTable(t){
+// ★ 2026-09-23新增defectItems參數(不良項目：具體哪個尺寸量測項目不良/外觀哪個缺陷分類，
+//   不只是尺寸NG/外觀不良這個大分類)，有值才多顯示一列，沒有就不顯示(舊單號可能沒這筆資料)。
+function renderFactsTable(t, defectItems){
   return `<table class="facts">
     <tr><td>日期</td><td>${escHtml(t.date)}</td></tr>
     <tr><td>爐號</td><td>${escHtml(t.furnace)}</td></tr>
     <tr><td>模號</td><td>${escHtml(t.model)}</td></tr>
     <tr><td>工單號</td><td>${escHtml(t.wo)}</td></tr>
     <tr><td>判定</td><td>${escHtml(t.verdict)}</td></tr>
+    ${defectItems ? `<tr><td>不良項目</td><td>${escHtml(defectItems)}</td></tr>` : ''}
   </table>`;
 }
 
@@ -128,7 +131,7 @@ function renderReadonly(data){
   app.innerHTML = `
     <h1>特採簽核</h1>
     <div class="ticket-no">${escHtml(data.ticketNo)}</div>
-    ${renderFactsTable(data.ticket)}
+    ${renderFactsTable(data.ticket, data.defectItems)}
     <div class="readonly-box">
       此單已由 <b>${escHtml(who)}</b> 於 <b>${escHtml(when)}</b> 處理，
       目前狀態：<b>${escHtml(data.status)}</b>
@@ -154,7 +157,7 @@ function renderDriForm(data){
   app.innerHTML = `
     <h1>特採簽核 - DRI判定</h1>
     <div class="ticket-no">${escHtml(data.ticketNo)}</div>
-    ${renderFactsTable(data.ticket)}
+    ${renderFactsTable(data.ticket, data.defectItems)}
     ${isRetryAfterReject ? `<div class="msg err" style="display:block;">此單先前放行後被駁回，這次只能選擇重工或報廢。</div>` : ''}
     <label>回應人姓名</label>
     <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
@@ -279,7 +282,7 @@ function renderManagerForm(data){
   app.innerHTML = `
     <h1>特採簽核 - 大主管核准</h1>
     <div class="ticket-no">${escHtml(data.ticketNo)}</div>
-    ${renderFactsTable(data.ticket)}
+    ${renderFactsTable(data.ticket, data.defectItems)}
     <div class="readonly-box">${infoHtml}</div>
     <label>核准人姓名</label>
     <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
@@ -349,7 +352,7 @@ function renderTechReviewForm(data){
   app.innerHTML = `
     <h1>特採簽核 - 技術審查</h1>
     <div class="ticket-no">${escHtml(data.ticketNo)}</div>
-    ${renderFactsTable(data.ticket)}
+    ${renderFactsTable(data.ticket, data.defectItems)}
     <div class="readonly-box">${infoHtml}</div>
     <label>審查人姓名</label>
     <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
@@ -402,7 +405,7 @@ function renderQAEngineerForm(data){
   app.innerHTML = `
     <h1>特採簽核 - 品保工程師判定(外觀不良)</h1>
     <div class="ticket-no">${escHtml(data.ticketNo)}</div>
-    ${renderFactsTable(data.ticket)}
+    ${renderFactsTable(data.ticket, data.defectItems)}
     <label>回應人姓名</label>
     <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
     <label>密碼</label>
@@ -475,7 +478,7 @@ function renderQAManagerForm(data){
   app.innerHTML = `
     <h1>特採簽核 - 品保主管審查(外觀不良)</h1>
     <div class="ticket-no">${escHtml(data.ticketNo)}</div>
-    ${renderFactsTable(data.ticket)}
+    ${renderFactsTable(data.ticket, data.defectItems)}
     <div class="readonly-box">
       品保工程師：<b>${escHtml(data.qaEngName)}</b>（${escHtml(data.qaEngTime)}）<br>
       放行理由：${escHtml(data.qaEngRemark)}<br>
