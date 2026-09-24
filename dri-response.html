@@ -171,7 +171,7 @@ function renderDriForm(data){
     </div>
     <div class="release-condition" id="releaseBox">
       ${data.autoBatchQty ? `
-        <label>批量／不良數（自動帶入，來源：生產工站量測明細）</label>
+        <label>批量／不良數（自動帶入，來源：${data.autoSource === '備註' ? '現場備註擷取，請核對' : '生產工站量測明細'}）</label>
         <div class="readonly-box" style="margin-bottom:8px;">批量：<b>${escHtml(data.autoBatchQty)}</b> 件　不良數：<b>${escHtml(data.autoDefectCount)}</b> 件　不良率：<b>${(data.autoDefectCount/data.autoBatchQty*100).toFixed(2)}%</b></div>
       ` : `
         <label>⚠️ 批量(必填)</label>
