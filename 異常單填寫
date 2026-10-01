@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>特採簽核中心 - MIM品質系統</title>
+<style>
+  body{font-family:"Microsoft JhengHei",sans-serif;background:#f4f5f7;margin:0;padding:20px;color:#222;}
+  .hub-tabs{display:flex;gap:8px;max-width:1400px;margin:0 auto 14px;}
+  .hub-tab-btn{padding:9px 18px;border:1.5px solid #ccc;border-radius:8px 8px 0 0;background:#e9ebee;
+    color:#555;font-size:14px;font-weight:700;cursor:pointer;border-bottom:none;}
+  .hub-tab-btn.active{background:#fff;color:#2563eb;border-color:#2563eb;}
+  .hub-panel{display:none;}
+  .hub-panel.active{display:block;}
+
+  /* ===== 簽核總表 ===== */
+  .wrap{max-width:1400px;margin:0 auto;}
+  h1{font-size:20px;margin:0 0 12px;}
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+  .toolbar input,.toolbar select{padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;}
+  .toolbar input{flex:1;min-width:200px;}
+  .count{color:#666;font-size:13px;}
+  .table-wrap{background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:auto;max-height:70vh;}
+  table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap;}
+  th,td{border:1px solid #e3e5e8;padding:7px 10px;text-align:left;}
+  th{background:#f0f1f3;position:sticky;top:0;cursor:pointer;user-select:none;font-weight:700;}
+  th:hover{background:#e4e6ea;}
+  th.sorted::after{content:' ▾';}
+  th.sorted.asc::after{content:' ▴';}
+  tr:nth-child(even){background:#fafbfc;}
+  tr:hover{background:#eef4ff;}
+  .pill{padding:2px 8px;border-radius:12px;font-size:12px;font-weight:700;}
+  .pill.wait{background:#fff4e0;color:#a15c00;}
+  .pill.done{background:#e6f6ec;color:#1e7e34;}
+  .link-btn{color:#2563eb;text-decoration:none;font-weight:700;}
+  .link-btn:hover{text-decoration:underline;}
+  .loading{padding:30px;text-align:center;color:#888;}
+
+  /* ===== 異常單填寫 ===== */
+  .card{max-width:560px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:24px;}
+  .card h2{font-size:18px;margin:0 0 4px;}
+  .sub2{font-size:13px;color:#888;margin-bottom:18px;}
+  label{display:block;font-size:13px;color:#555;margin:14px 0 4px;font-weight:600;}
+  select,input[type=text],input[type=date],input[type=number],textarea{
+    width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px;}
+  textarea{min-height:60px;resize:vertical;}
+  select:disabled{background:#f0f0f0;color:#999;}
+  .lookup-row{display:flex;gap:8px;align-items:flex-end;}
+  .lookup-row>div{flex:1;}
+  .lookup-btn{flex:0 0 auto;padding:8px 14px;border:1px solid #2563eb;background:#fff;color:#2563eb;
+    border-radius:6px;font-size:13.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
+  .lookup-btn:hover{background:#eff6ff;}
+  .lookup-results{margin-top:8px;border:1px solid #eee;border-radius:6px;overflow:hidden;display:none;}
+  .lookup-results.show{display:block;}
+  .lookup-item{padding:9px 10px;font-size:13px;border-bottom:1px solid #f0f0f0;cursor:pointer;}
+  .lookup-item:last-child{border-bottom:none;}
+  .lookup-item:hover{background:#f8f9fa;}
+  .lookup-item b{color:#2563eb;}
+  .lookup-hint{font-size:12px;color:#999;margin-top:4px;}
+  .choice-row{display:flex;gap:8px;margin-top:6px;}
+  .choice-btn{flex:1;padding:10px;border:1.5px solid #ccc;border-radius:6px;background:#fff;cursor:pointer;font-weight:700;font-size:14px;}
+  .choice-btn.sel{border-color:#2563eb;background:#eff6ff;color:#2563eb;}
+  .req{color:#c0392b;}
+  .rate-hint{font-size:12px;color:#888;margin-top:4px;}
+  .submit-btn{margin-top:20px;width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:15px;font-weight:700;cursor:pointer;}
+  .submit-btn:disabled{background:#aaa;cursor:not-allowed;}
+  .msg{margin-top:12px;padding:10px;border-radius:6px;font-size:13px;display:none;white-space:pre-wrap;}
+  .msg.err{background:#fdecea;color:#c0392b;display:block;}
+  .msg.ok{background:#e6f6ec;color:#1e7e34;display:block;}
+  .msg.ok a{color:#1e7e34;font-weight:700;}
+  .result-box{margin-top:12px;padding:16px;background:#e6f6ec;border-radius:8px;display:none;}
+  .result-box.show{display:block;}
+  .result-box .tk{font-family:monospace;font-size:17px;font-weight:700;color:#1e7e34;margin-bottom:6px;}
+</style>
+</head>
+<body>
+
+<div class="hub-tabs">
+  <button type="button" class="hub-tab-btn active" data-tab="list">📋 簽核總表</button>
+  <button type="button" class="hub-tab-btn" data-tab="form">📝 填寫異常單</button>
+</div>
+
+<!-- ════════════════ 分頁一：特採簽核總表 ════════════════ -->
+<div class="hub-panel active" id="tab-list">
+  <div class="wrap">
+    <h1>📋 特採簽核總表</h1>
+    <div class="toolbar">
+      <input type="text" id="filterText" placeholder="搜尋單號/爐號/模號/工單號/DRI/大主管...">
+      <select id="filterStatus">
+        <option value="">全部狀態</option>
+        <option value="待DRI回應">待DRI回應</option>
+        <option value="待大主管核准">待大主管核准</option>
+        <option value="已完結">已完結</option>
+      </select>
+      <span class="count" id="countText"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="table">
+        <thead><tr>
+          <th data-k="ticketNo">異常單號</th>
+          <th data-k="station">站別</th>
+          <th data-k="date">日期</th>
+          <th data-k="furnace">爐號</th>
+          <th data-k="model">模號</th>
+          <th data-k="wo">工單號</th>
+          <th data-k="verdict">判定</th>
+          <th data-k="status">簽核狀態</th>
+          <th data-k="driName">DRI</th>
+          <th data-k="driChoice">DRI回應</th>
+          <th data-k="batchQty">批量</th>
+          <th data-k="defectCount">不良數</th>
+          <th data-k="defectRate">不良率</th>
+          <th data-k="releaseCondition">放行條件</th>
+          <th data-k="reworkProcess">重工流程</th>
+          <th>佐證檔案</th>
+          <th data-k="mgrName">大主管</th>
+          <th data-k="mgrChoice">大主管回應</th>
+          <th>操作</th>
+        </tr></thead>
+        <tbody id="tbody"><tr><td colspan="19" class="loading">讀取中…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ 分頁二：異常單填寫 ════════════════ -->
+<div class="hub-panel" id="tab-form">
+  <div class="card">
+    <h2>📝 異常單填寫</h2>
+    <div class="sub2">品保發現異常時手動建單，送出後會自動產生單號並通知負責的 DRI／品保工程師。</div>
+
+    <label>站別 <span class="req">*</span></label>
+    <select id="f_station">
+      <option value="燒結">燒結</option>
+      <option value="射出" disabled>射出(即將開放)</option>
+      <option value="進料" disabled>進料(即將開放)</option>
+    </select>
+
+    <label>查詢帶入燒結資料（選填，方便帶入品名／工單號）</label>
+    <div class="lookup-row">
+      <div><input type="date" id="f_lookupDate" placeholder="日期"></div>
+      <div><input type="text" id="f_lookupFurnace" placeholder="爐號"></div>
+      <button type="button" class="lookup-btn" id="btnLookup">🔍 查詢</button>
+    </div>
+    <div class="lookup-hint">輸入日期＋爐號查詢燒結明細表，點選查詢結果可帶入下方欄位（僅供參考，仍可自行修改）。</div>
+    <div class="lookup-results" id="lookupResults"></div>
+
+    <label>日期 <span class="req">*</span></label>
+    <input type="date" id="f_date">
+
+    <label>爐號／機台代號</label>
+    <input type="text" id="f_equipment" placeholder="例如：205">
+
+    <label>工單號</label>
+    <input type="text" id="f_workOrder">
+
+    <label>品名 <span class="req">*</span></label>
+    <input type="text" id="f_model" placeholder="例如：P885 MOUNT A L/R...">
+
+    <label>不良分類 <span class="req">*</span></label>
+    <div class="choice-row" id="defectTypeRow">
+      <button type="button" class="choice-btn" data-v="尺寸NG">尺寸NG</button>
+      <button type="button" class="choice-btn" data-v="外觀不良">外觀不良</button>
+    </div>
+
+    <label>批量（選填，有填不良數才會算不良率）</label>
+    <input type="number" id="f_batchQty" min="0">
+
+    <label>不良數（選填）</label>
+    <input type="number" id="f_defectCount" min="0">
+    <div class="rate-hint" id="rateHint">不良率：--</div>
+
+    <label>不良項目（具體缺陷說明）</label>
+    <textarea id="f_defectItems" placeholder="例如：B基準孔NOGO、外觀異色..."></textarea>
+
+    <label>備註（選填）</label>
+    <textarea id="f_remark"></textarea>
+
+    <label>現場照片（選填）</label>
+    <input type="file" id="f_evidence" accept="image/*">
+    <div class="lookup-hint" id="evidenceHint"></div>
+
+    <button class="submit-btn" id="btnSubmit">送出，建立異常單</button>
+
+    <div class="msg" id="msgBox"></div>
+    <div class="result-box" id="resultBox">
+      <div class="tk" id="resultTicketNo"></div>
+      <div id="resultLink"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 共用的「異常單中心」後端(dri_response_backend.gs)
+const API_URL = 'https://script.google.com/macros/s/AKfycbxWZB8U3HaU7m9TZsQ85PzRCvFJf8zIt3dd8WppQdu6XuPLwcKku-bCIzbE4v7qVP3Z/exec';
+// 燒結明細表的既有後端，只用來「查詢帶入」，唯讀，不會寫入任何資料
+const SINTER_API_URL = 'https://script.google.com/macros/s/AKfycbzkQo6Rsm6bQRMJqVjxi7N64KsPQX1j_ibtV39oDhcBg8wOVwfcq5koXNNknrtl8shjIg/exec';
+const DRI_FORM_BASE_URL = 'https://tzuyukao-cmd.github.io/mim-quality-system/dri-response.html';
+
+function escHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function readFileAsBase64(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const dataUrl = reader.result; // "data:<mime>;base64,<data>"
+      resolve(dataUrl.slice(dataUrl.indexOf(',')+1));
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ---- 分頁切換 ----
+function switchTab(key){
+  document.querySelectorAll('.hub-tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===key));
+  document.querySelectorAll('.hub-panel').forEach(p=>p.classList.toggle('active', p.id === 'tab-'+key));
+}
+document.querySelectorAll('.hub-tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>switchTab(btn.dataset.tab));
+});
+
+// ---- 從燒結明細表「填異常單」按鈕跳轉過來時，自動切到填寫異常單頁籤並帶入資料
+// (2026-09-30新增，跟index.html的sinterOpenTicketForm()配套)。
+// date參數可能是燒結的yyyy/MM/dd顯示格式，用toYMD()轉成<input type=date>要的yyyy-MM-dd。
+(function prefillFromUrl(){
+  const qs = new URLSearchParams(location.search);
+  if(qs.get('tab') !== 'form') return;
+  switchTab('form');
+  const date = qs.get('date'), furnace = qs.get('furnace'), wo = qs.get('wo'), model = qs.get('model');
+  if(date) document.getElementById('f_date').value = toYMD(date) || date;
+  if(furnace) document.getElementById('f_equipment').value = furnace;
+  if(wo) document.getElementById('f_workOrder').value = wo;
+  if(model) document.getElementById('f_model').value = model;
+})();
+
+// ════════════════ 簽核總表邏輯 ════════════════
+let allRows = [];
+let sortKey = 'ticketNo';
+let sortAsc = false;
+
+function statusPill(status){
+  const cls = status === '已完結' ? 'done' : 'wait';
+  return `<span class="pill ${cls}">${escHtml(status)}</span>`;
+}
+
+async function loadList(){
+  try{
+    const res = await fetch(API_URL + '?action=listTickets');
+    const data = await res.json();
+    if(!data.ok){ document.getElementById('tbody').innerHTML = `<tr><td colspan="19" class="loading">讀取失敗：${escHtml(data.error)}</td></tr>`; return; }
+    allRows = data.rows || [];
+    renderList();
+  }catch(err){
+    document.getElementById('tbody').innerHTML = `<tr><td colspan="19" class="loading">連線失敗：${escHtml(err.message)}</td></tr>`;
+  }
+}
+
+function renderList(){
+  const kw = document.getElementById('filterText').value.trim().toLowerCase();
+  const statusFilter = document.getElementById('filterStatus').value;
+  let rows = allRows.filter(r=>{
+    if(statusFilter && r.status !== statusFilter) return false;
+    if(!kw) return true;
+    return ['ticketNo','furnace','model','wo','driName','mgrName'].some(k => String(r[k]||'').toLowerCase().includes(kw));
+  });
+  rows.sort((a,b)=>{
+    const av = String(a[sortKey]||''), bv = String(b[sortKey]||'');
+    const cmp = av.localeCompare(bv, 'zh-Hant');
+    return sortAsc ? cmp : -cmp;
+  });
+  document.getElementById('countText').textContent = `顯示 ${rows.length} / ${allRows.length} 筆`;
+  document.getElementById('tbody').innerHTML = rows.map(r=>`
+    <tr>
+      <td>${escHtml(r.ticketNo)}</td>
+      <td>${escHtml(r.station)}</td>
+      <td>${escHtml(r.date)}</td>
+      <td>${escHtml(r.furnace)}</td>
+      <td>${escHtml(r.model)}</td>
+      <td>${escHtml(r.wo)}</td>
+      <td>${escHtml(r.verdict)}</td>
+      <td>${statusPill(r.status)}</td>
+      <td>${escHtml(r.driName)}</td>
+      <td>${escHtml(r.driChoice)}</td>
+      <td>${escHtml(r.batchQty)}</td>
+      <td>${escHtml(r.defectCount)}</td>
+      <td>${escHtml(r.defectRate)}</td>
+      <td>${escHtml(r.releaseCondition)}</td>
+      <td>${escHtml(r.reworkProcess)}</td>
+      <td>${r.evidenceUrl ? `<a class="link-btn" href="${escHtml(r.evidenceUrl)}" target="_blank">查看 →</a>` : ''}</td>
+      <td>${escHtml(r.mgrName)}</td>
+      <td>${escHtml(r.mgrChoice)}</td>
+      <td><a class="link-btn" href="${DRI_FORM_BASE_URL}?ticket=${encodeURIComponent(r.ticketNo)}" target="_blank">查看/處理 →</a></td>
+    </tr>
+  `).join('') || `<tr><td colspan="19" class="loading">沒有符合條件的資料</td></tr>`;
+
+  document.querySelectorAll('th[data-k]').forEach(th=>{
+    th.classList.toggle('sorted', th.dataset.k === sortKey);
+    th.classList.toggle('asc', th.dataset.k === sortKey && sortAsc);
+  });
+}
+
+document.getElementById('filterText').addEventListener('input', renderList);
+document.getElementById('filterStatus').addEventListener('change', renderList);
+document.querySelectorAll('th[data-k]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    if(sortKey === th.dataset.k){ sortAsc = !sortAsc; }
+    else { sortKey = th.dataset.k; sortAsc = true; }
+    renderList();
+  });
+});
+
+loadList();
+
+// ════════════════ 異常單填寫邏輯 ════════════════
+function toYMD(dateDisplay){
+  // 燒結明細表的日期顯示格式是 yyyy/MM/dd，轉成跟<input type=date>一樣的 yyyy-MM-dd 比對
+  const m = String(dateDisplay||'').match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+  if(!m) return '';
+  return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+}
+
+let defectType = '';
+document.querySelectorAll('#defectTypeRow .choice-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    defectType = btn.dataset.v;
+    document.querySelectorAll('#defectTypeRow .choice-btn').forEach(b=>b.classList.toggle('sel', b===btn));
+  });
+});
+
+function updateRateHint(){
+  const b = Number(document.getElementById('f_batchQty').value);
+  const d = Number(document.getElementById('f_defectCount').value);
+  const hint = document.getElementById('rateHint');
+  if(b>0 && d>=0){
+    hint.textContent = '不良率：' + (d/b*100).toFixed(2) + '%';
+  } else {
+    hint.textContent = '不良率：--';
+  }
+}
+document.getElementById('f_batchQty').addEventListener('input', updateRateHint);
+document.getElementById('f_defectCount').addEventListener('input', updateRateHint);
+
+document.getElementById('f_evidence').addEventListener('change', ()=>{
+  const f = document.getElementById('f_evidence').files[0];
+  document.getElementById('evidenceHint').textContent = f ? ('已選擇：' + f.name) : '';
+});
+
+document.getElementById('btnLookup').addEventListener('click', async ()=>{
+  const dateVal = document.getElementById('f_lookupDate').value;
+  const furnaceVal = document.getElementById('f_lookupFurnace').value.trim();
+  const resultsBox = document.getElementById('lookupResults');
+  const msgBox = document.getElementById('msgBox');
+  msgBox.className = 'msg';
+  if(!dateVal && !furnaceVal){
+    msgBox.className = 'msg err'; msgBox.textContent = '請至少輸入日期或爐號其中一項再查詢';
+    return;
+  }
+  resultsBox.innerHTML = '<div class="lookup-item">查詢中…</div>';
+  resultsBox.classList.add('show');
+  try{
+    const res = await fetch(SINTER_API_URL + '?action=getData');
+    const data = await res.json();
+    if(!data.ok){ resultsBox.innerHTML = '<div class="lookup-item">查詢失敗：'+escHtml(data.error)+'</div>'; return; }
+    let rows = data.data || [];
+    if(dateVal) rows = rows.filter(r => toYMD(r.date) === dateVal);
+    if(furnaceVal) rows = rows.filter(r => String(r.furnace||'').trim() === furnaceVal);
+    if(rows.length === 0){
+      resultsBox.innerHTML = '<div class="lookup-item">查無符合的燒結資料，請直接手動填寫下方欄位</div>';
+      return;
+    }
+    resultsBox.innerHTML = rows.slice(0,15).map((r,i)=>
+      `<div class="lookup-item" data-i="${i}"><b>${escHtml(r.date)} 爐${escHtml(r.furnace)}</b>　${escHtml(r.model)}　判定:${escHtml(r.verdict)}</div>`
+    ).join('');
+    resultsBox.querySelectorAll('.lookup-item[data-i]').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const r = rows[Number(el.dataset.i)];
+        document.getElementById('f_date').value = toYMD(r.date) || '';
+        document.getElementById('f_equipment').value = r.furnace || '';
+        document.getElementById('f_workOrder').value = r.wo || '';
+        document.getElementById('f_model').value = r.model || '';
+        resultsBox.classList.remove('show');
+        msgBox.className = 'msg ok'; msgBox.textContent = '已帶入「'+r.model+'」的資料，請確認後繼續填寫。';
+      });
+    });
+  }catch(err){
+    resultsBox.innerHTML = '<div class="lookup-item">查詢發生錯誤：'+escHtml(err.message)+'</div>';
+  }
+});
+
+document.getElementById('btnSubmit').addEventListener('click', async ()=>{
+  const msgBox = document.getElementById('msgBox');
+  msgBox.className = 'msg';
+  const station = document.getElementById('f_station').value;
+  const date = document.getElementById('f_date').value;
+  const equipment = document.getElementById('f_equipment').value.trim();
+  const workOrder = document.getElementById('f_workOrder').value.trim();
+  const model = document.getElementById('f_model').value.trim();
+  const batchQty = document.getElementById('f_batchQty').value.trim();
+  const defectCount = document.getElementById('f_defectCount').value.trim();
+  const defectItems = document.getElementById('f_defectItems').value.trim();
+  const remark = document.getElementById('f_remark').value.trim();
+
+  if(!date){ msgBox.className='msg err'; msgBox.textContent='請填寫日期'; return; }
+  if(!model){ msgBox.className='msg err'; msgBox.textContent='請填寫品名'; return; }
+  if(!defectType){ msgBox.className='msg err'; msgBox.textContent='請選擇不良分類(尺寸NG／外觀不良)'; return; }
+  if(batchQty && defectCount && Number(defectCount) > Number(batchQty)){
+    msgBox.className='msg err'; msgBox.textContent='不良數不能大於批量'; return;
+  }
+
+  const btn = document.getElementById('btnSubmit');
+  btn.disabled = true; btn.textContent = '送出中…';
+  try{
+    const evidenceFile = document.getElementById('f_evidence').files[0];
+    let evidenceFileName = '', evidenceMimeType = '', evidenceFileBase64 = '';
+    if (evidenceFile) {
+      btn.textContent = '上傳照片中…';
+      evidenceFileName = evidenceFile.name;
+      evidenceMimeType = evidenceFile.type;
+      evidenceFileBase64 = await readFileAsBase64(evidenceFile);
+      btn.textContent = '送出中…';
+    }
+    const res = await fetch(API_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'createAbnormalTicket', payload:{
+        station, date, equipment, workOrder, model, defectType,
+        batchQty, defectCount, defectItems, remark,
+        evidenceFileName, evidenceMimeType, evidenceFileBase64
+      }})
+    });
+    const data = await res.json();
+    if(!data.ok){
+      msgBox.className='msg err'; msgBox.textContent='送出失敗：'+data.error;
+      btn.disabled=false; btn.textContent='送出，建立異常單';
+      return;
+    }
+    document.getElementById('resultTicketNo').textContent = '✅ 已建立：' + data.ticketNo;
+    document.getElementById('resultLink').innerHTML =
+      '目前狀態：' + escHtml(data.status) + '　' +
+      '<a href="' + DRI_FORM_BASE_URL + '?ticket=' + encodeURIComponent(data.ticketNo) + '" target="_blank">查看此單處理進度 →</a>' +
+      (data.evidenceUrl ? '　<a href="' + escHtml(data.evidenceUrl) + '" target="_blank">查看已上傳照片 →</a>' : '');
+    document.getElementById('resultBox').classList.add('show');
+    btn.textContent = '已送出';
+    // 建單成功後，如果使用者切回「簽核總表」分頁，順便重新整理一次清單
+    loadList();
+  }catch(err){
+    msgBox.className='msg err'; msgBox.textContent='送出發生錯誤：'+err.message;
+    btn.disabled=false; btn.textContent='送出，建立異常單';
+  }
+});
+</script>
+</body>
+</html>
