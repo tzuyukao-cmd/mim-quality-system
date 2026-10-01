@@ -2217,6 +2217,7 @@ function sinterRender(){
           <button class="gauge-edit-btn" onclick="sinterEdit(${i})">✏ 編輯</button>
           <button class="gauge-del-btn" onclick="sinterDelete(${i})">🗑 刪除</button><br>
           <button class="btn-ghost" style="margin-top:4px;font-size:12px;padding:3px 8px;" onclick="sinterViewDetail(${i})">🔍 查看明細</button>
+          <br><button class="btn-primary" style="margin-top:4px;font-size:12px;padding:3px 8px;" onclick="sinterOpenTicketForm(${i})">📝 填異常單</button>
         </td>
       </tr>`;
   }).join('');
@@ -2259,6 +2260,16 @@ function sinterRender(){
       </div>
     </div>
   `;
+}
+
+// 跳轉到「異常單中心」的填寫異常單頁籤，帶入這一列的日期/爐號/工單號/品名，
+// 省去品保自己再查一次(2026-09-30新增)。每一列都顯示，不論判定是什麼——是否要開單
+// 由人員自己判斷，不用系統的判定欄位限制(呼應本次全面改手動的方向)。
+function sinterOpenTicketForm(i){
+  const r = sinterState.rows[i];
+  if(!r) return;
+  const qs = new URLSearchParams({tab:'form', date:r.date||'', furnace:r.furnace||'', wo:r.wo||'', model:r.model||''});
+  window.open('https://tzuyukao-cmd.github.io/mim-quality-system/ng-signoff-hub.html?'+qs.toString(), '_blank');
 }
 
 async function sinterImportByDate(){
