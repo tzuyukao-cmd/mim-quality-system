@@ -440,7 +440,8 @@ document.getElementById('btnSubmit').addEventListener('click', async ()=>{
     document.getElementById('resultLink').innerHTML =
       '目前狀態：' + escHtml(data.status) + '　' +
       '<a href="' + DRI_FORM_BASE_URL + '?ticket=' + encodeURIComponent(data.ticketNo) + '" target="_blank">查看此單處理進度 →</a>' +
-      (data.evidenceUrl ? '　<a href="' + escHtml(data.evidenceUrl) + '" target="_blank">查看已上傳照片 →</a>' : '');
+      (data.evidenceUrl ? '　<a href="' + escHtml(data.evidenceUrl) + '" target="_blank">查看已上傳照片 →</a>' : '') +
+      (data.evidenceError ? '<br><span style="color:#c0392b;">⚠️ 照片上傳失敗：' + escHtml(data.evidenceError) + '（單據本身已建立成功，不受影響）</span>' : '');
     document.getElementById('resultBox').classList.add('show');
     btn.textContent = '已送出';
     // 建單成功後，如果使用者切回「簽核總表」分頁，順便重新整理一次清單
