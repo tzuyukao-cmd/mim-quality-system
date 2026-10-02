@@ -200,6 +200,11 @@ const DRI_FORM_BASE_URL = 'https://tzuyukao-cmd.github.io/mim-quality-system/dri
 function escHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// ★ 2026-10-02：公司網路連不到drive.google.com，照片連結改走drive.usercontent.google.com開啟
+function evidenceViewUrl(url){
+  const m = String(url||'').match(/\/d\/([\w-]+)|[?&]id=([\w-]+)/);
+  return m ? 'https://drive.usercontent.google.com/download?id=' + (m[1]||m[2]) + '&export=view' : String(url||'');
+}
 function readFileAsBase64(file){
   return new Promise((resolve, reject)=>{
     const reader = new FileReader();
@@ -288,7 +293,7 @@ function renderList(){
       <td>${escHtml(r.defectRate)}</td>
       <td>${escHtml(r.releaseCondition)}</td>
       <td>${escHtml(r.reworkProcess)}</td>
-      <td>${r.evidenceUrl ? `<a class="link-btn" href="${escHtml(r.evidenceUrl)}" target="_blank">查看 →</a>` : ''}</td>
+      <td>${r.evidenceUrl ? `<a class="link-btn" href="${escHtml(evidenceViewUrl(r.evidenceUrl))}" target="_blank">查看 →</a>` : ''}</td>
       <td>${escHtml(r.mgrName)}</td>
       <td>${escHtml(r.mgrChoice)}</td>
       <td><a class="link-btn" href="${DRI_FORM_BASE_URL}?ticket=${encodeURIComponent(r.ticketNo)}" target="_blank">查看/處理 →</a></td>
@@ -440,7 +445,7 @@ document.getElementById('btnSubmit').addEventListener('click', async ()=>{
     document.getElementById('resultLink').innerHTML =
       '目前狀態：' + escHtml(data.status) + '　' +
       '<a href="' + DRI_FORM_BASE_URL + '?ticket=' + encodeURIComponent(data.ticketNo) + '" target="_blank">查看此單處理進度 →</a>' +
-      (data.evidenceUrl ? '　<a href="' + escHtml(data.evidenceUrl) + '" target="_blank">查看已上傳照片 →</a>' : '') +
+      (data.evidenceUrl ? '　<a href="' + escHtml(evidenceViewUrl(data.evidenceUrl)) + '" target="_blank">查看已上傳照片 →</a>' : '') +
       (data.evidenceError ? '<br><span style="color:#c0392b;">⚠️ 照片上傳失敗：' + escHtml(data.evidenceError) + '（單據本身已建立成功，不受影響）</span>' : '');
     document.getElementById('resultBox').classList.add('show');
     btn.textContent = '已送出';
