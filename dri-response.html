@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>特採簽核 - MIM品質系統</title>
 <style>
+  .evidence-img{display:block;max-width:100%;max-height:360px;border:1px solid #ddd;border-radius:6px;margin-top:6px;cursor:zoom-in;}
   body{font-family:"Microsoft JhengHei",sans-serif;background:#f4f5f7;margin:0;padding:20px;color:#222;}
   .card{max-width:520px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:24px;}
   h1{font-size:20px;margin:0 0 4px;}
@@ -73,6 +74,26 @@ function escHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// ★ 2026-10-02新增：照片直接內嵌顯示。公司網路會連不到drive.google.com(檔案頁面/試算表)，
+//   但googleusercontent.com連得到，所以從Drive網址取出檔案ID，圖片改走lh3.googleusercontent.com
+//   直接顯示，點圖/非圖片檔改走drive.usercontent.google.com開啟，不再依賴Drive檔案頁面。
+function driveFileId(url){
+  const m = String(url||'').match(/\/d\/([\w-]+)|[?&]id=([\w-]+)/);
+  return m ? (m[1]||m[2]) : '';
+}
+function evidenceViewUrl(url){
+  const id = driveFileId(url);
+  return id ? 'https://drive.usercontent.google.com/download?id=' + id + '&export=view' : String(url||'');
+}
+function evidenceHtml(url){
+  if(!url) return '';
+  const id = driveFileId(url);
+  const view = escHtml(evidenceViewUrl(url));
+  if(!id) return `<a href="${view}" target="_blank">查看檔案 →</a>`;
+  return `<span><a href="${view}" target="_blank"><img class="evidence-img" src="https://lh3.googleusercontent.com/d/${escHtml(id)}" alt="現場照片"
+      onerror="this.parentNode.parentNode.hidden=true;this.parentNode.parentNode.nextElementSibling.hidden=false;"></a></span><span hidden><a href="${view}" target="_blank">開啟檔案 →</a>（非圖片檔，無法預覽）</span>`;
+}
+
 // ★ 2026-09-23新增defectItems參數(不良項目：具體哪個尺寸量測項目不良/外觀哪個缺陷分類，
 //   不只是尺寸NG/外觀不良這個大分類)，有值才多顯示一列，沒有就不顯示(舊單號可能沒這筆資料)。
 // ★ 2026-09-30新增evidenceUrl參數：異常單填寫時附的現場照片，要在品保工程師/DRI
@@ -86,7 +107,7 @@ function renderFactsTable(t, defectItems, evidenceUrl){
     <tr><td>工單號</td><td>${escHtml(t.wo)}</td></tr>
     <tr><td>判定</td><td>${escHtml(t.verdict)}</td></tr>
     ${defectItems ? `<tr><td>不良項目</td><td>${escHtml(defectItems)}</td></tr>` : ''}
-    ${evidenceUrl ? `<tr><td>現場照片</td><td><a href="${escHtml(evidenceUrl)}" target="_blank">查看照片 →</a></td></tr>` : ''}
+    ${evidenceUrl ? `<tr><td>現場照片</td><td>${evidenceHtml(evidenceUrl)}</td></tr>` : ''}
   </table>`;
 }
 
@@ -148,7 +169,7 @@ function renderReadonly(data){
         ${data.reworkProcess ? `<br>重工流程：${escHtml(data.reworkProcess)}` : ''}
         ${data.techReviewName ? `<br>技術審查：${escHtml(data.techReviewName)}（${escHtml(data.techReviewChoice)}，${escHtml(data.techReviewTime)}）` : ''}
       `}
-      ${data.evidenceUrl ? `<br>佐證檔案：<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : ''}
+      ${data.evidenceUrl ? `<br>佐證檔案：${evidenceHtml(data.evidenceUrl)}` : ''}
       ${data.mgrChoice ? `<br>大主管：${escHtml(data.mgrChoice)}` : ''}
     </div>
   `;
@@ -272,14 +293,14 @@ function renderManagerForm(data){
       品保工程師：<b>${escHtml(data.qaEngName)}</b>（${escHtml(data.qaEngTime)}）<br>
       品保主管：<b>${escHtml(data.qaMgrName)}</b>（${escHtml(data.qaMgrTime)}）<br>
       放行理由：${escHtml(data.qaEngRemark)}<br>
-      佐證檔案：${data.evidenceUrl ? `<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : '（無）'}
+      佐證檔案：${data.evidenceUrl ? `${evidenceHtml(data.evidenceUrl)}` : '（無）'}
     ` : `
       DRI：<b>${escHtml(data.driName)}</b>（${escHtml(data.driTime)}）<br>
       DRI判定：<b>${escHtml(data.driChoice)}</b><br>
       技術審查：<b>${escHtml(data.techReviewName)}</b>（${escHtml(data.techReviewTime)}）<br>
       ${data.driChoice === '放行' ? `批量/不良數：${escHtml(data.batchQty)} / ${escHtml(data.defectCount)}（不良率 ${escHtml(data.defectRate)}）<br>放行條件：${escHtml(data.releaseCondition)}<br>` : ''}
       ${data.driChoice === '重工' ? `重工流程：${escHtml(data.reworkProcess)}<br>` : ''}
-      佐證檔案：${data.evidenceUrl ? `<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : '（無）'}
+      佐證檔案：${data.evidenceUrl ? `${evidenceHtml(data.evidenceUrl)}` : '（無）'}
       ${data.driRemark ? `<br>DRI備註：${escHtml(data.driRemark)}` : ''}
       ${data.techReviewRemark ? `<br>技術審查備註：${escHtml(data.techReviewRemark)}` : ''}
     `;
@@ -350,7 +371,7 @@ function renderTechReviewForm(data){
       DRI：<b>${escHtml(data.driName)}</b>（${escHtml(data.driTime)}）<br>
       DRI判定：<b>${escHtml(data.driChoice)}</b><br>
       ${choiceDetail}
-      佐證檔案：${data.evidenceUrl ? `<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : '（無）'}
+      佐證檔案：${data.evidenceUrl ? `${evidenceHtml(data.evidenceUrl)}` : '（無）'}
       ${data.driRemark ? `<br>DRI備註：${escHtml(data.driRemark)}` : ''}
     `;
   app.innerHTML = `
@@ -486,7 +507,7 @@ function renderQAManagerForm(data){
     <div class="readonly-box">
       品保工程師：<b>${escHtml(data.qaEngName)}</b>（${escHtml(data.qaEngTime)}）<br>
       放行理由：${escHtml(data.qaEngRemark)}<br>
-      佐證檔案：${data.evidenceUrl ? `<a href="${escHtml(data.evidenceUrl)}" target="_blank">查看檔案 →</a>` : '（無）'}
+      佐證檔案：${data.evidenceUrl ? `${evidenceHtml(data.evidenceUrl)}` : '（無）'}
     </div>
     <label>審查人姓名</label>
     <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
