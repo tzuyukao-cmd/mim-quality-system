@@ -43,10 +43,24 @@ const params = new URLSearchParams(location.search);
 const ticketNo = params.get('ticket');
 const app = document.getElementById('app');
 
+// ★ 2026-10-06新增：Google偶發回傳「很抱歉，目前無法開啟這個檔案」的HTML錯誤頁(非JSON)，
+//   原本直接顯示「Unexpected token '<'」看不懂。讀取類自動重試2次；寫入類不重試(避免重複送出)，
+//   改顯示看得懂的提示，請使用者重新整理確認狀態。
+const BUSY_READ_MSG = '系統暫時忙碌，請稍後重新整理頁面再試一次。';
+async function parseJsonOrBusy(res, writeMsg){
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch(e){ const err = new Error(writeMsg || BUSY_READ_MSG); err.friendly = true; throw err; }
+}
+async function fetchJsonRetry(url){
+  for(let i = 0; ; i++){
+    try { return await parseJsonOrBusy(await fetch(url)); }
+    catch(err){ if(!err.friendly || i >= 2) throw err; await new Promise(r => setTimeout(r, 1500)); }
+  }
+}
 async function apiGet(action, extra){
   const qs = new URLSearchParams(Object.assign({action}, extra||{}));
-  const res = await fetch(API_URL + '?' + qs.toString());
-  return res.json();
+  return fetchJsonRetry(API_URL + '?' + qs.toString());
 }
 async function apiPost(action, payload){
   const res = await fetch(API_URL, {
@@ -54,7 +68,7 @@ async function apiPost(action, payload){
     headers:{'Content-Type':'text/plain;charset=utf-8'},
     body: JSON.stringify({action, payload})
   });
-  return res.json();
+  return parseJsonOrBusy(res, '系統暫時忙碌，資料可能已經送出。請重新整理頁面確認目前狀態，不要重複送出。');
 }
 
 function readFileAsBase64(file){
@@ -281,7 +295,7 @@ function renderDriForm(data){
         document.getElementById('submitBtn').disabled = false;
       }
     }catch(err){
-      msgBox.className='msg err'; msgBox.textContent='連線失敗：'+err.message;
+      msgBox.className='msg err'; msgBox.textContent=(err.friendly ? err.message : '連線失敗：'+err.message);
       document.getElementById('submitBtn').disabled = false;
     }
   };
@@ -350,7 +364,7 @@ function renderManagerForm(data){
         document.getElementById('submitBtn').disabled = false;
       }
     }catch(err){
-      msgBox.className='msg err'; msgBox.textContent='連線失敗：'+err.message;
+      msgBox.className='msg err'; msgBox.textContent=(err.friendly ? err.message : '連線失敗：'+err.message);
       document.getElementById('submitBtn').disabled = false;
     }
   };
@@ -420,7 +434,7 @@ function renderTechReviewForm(data){
         document.getElementById('submitBtn').disabled = false;
       }
     }catch(err){
-      msgBox.className='msg err'; msgBox.textContent='連線失敗：'+err.message;
+      msgBox.className='msg err'; msgBox.textContent=(err.friendly ? err.message : '連線失敗：'+err.message);
       document.getElementById('submitBtn').disabled = false;
     }
   };
@@ -497,7 +511,7 @@ function renderQAEngineerForm(data){
         document.getElementById('submitBtn').disabled = false;
       }
     }catch(err){
-      msgBox.className='msg err'; msgBox.textContent='連線失敗：'+err.message;
+      msgBox.className='msg err'; msgBox.textContent=(err.friendly ? err.message : '連線失敗：'+err.message);
       document.getElementById('submitBtn').disabled = false;
     }
   };
@@ -554,7 +568,7 @@ function renderQAManagerForm(data){
         document.getElementById('submitBtn').disabled = false;
       }
     }catch(err){
-      msgBox.className='msg err'; msgBox.textContent='連線失敗：'+err.message;
+      msgBox.className='msg err'; msgBox.textContent=(err.friendly ? err.message : '連線失敗：'+err.message);
       document.getElementById('submitBtn').disabled = false;
     }
   };
