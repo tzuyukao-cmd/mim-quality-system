@@ -169,7 +169,7 @@ function renderReadonly(data){
         ${data.reworkProcess ? `<br>重工流程：${escHtml(data.reworkProcess)}` : ''}
         ${data.techReviewName ? `<br>技術審查：${escHtml(data.techReviewName)}（${escHtml(data.techReviewChoice)}，${escHtml(data.techReviewTime)}）` : ''}
       `}
-      ${data.evidenceUrl ? `<br>佐證檔案：${evidenceHtml(data.evidenceUrl)}` : ''}
+      ${data.respEvidenceUrl ? `<br>佐證檔案：${evidenceHtml(data.respEvidenceUrl)}` : ''}
       ${data.mgrChoice ? `<br>大主管：${escHtml(data.mgrChoice)}` : ''}
     </div>
   `;
@@ -293,14 +293,14 @@ function renderManagerForm(data){
       品保工程師：<b>${escHtml(data.qaEngName)}</b>（${escHtml(data.qaEngTime)}）<br>
       品保主管：<b>${escHtml(data.qaMgrName)}</b>（${escHtml(data.qaMgrTime)}）<br>
       放行理由：${escHtml(data.qaEngRemark)}<br>
-      佐證檔案：${data.evidenceUrl ? `${evidenceHtml(data.evidenceUrl)}` : '（無）'}
+      佐證檔案：${data.respEvidenceUrl ? `${evidenceHtml(data.respEvidenceUrl)}` : '（無）'}
     ` : `
       DRI：<b>${escHtml(data.driName)}</b>（${escHtml(data.driTime)}）<br>
       DRI判定：<b>${escHtml(data.driChoice)}</b><br>
       技術審查：<b>${escHtml(data.techReviewName)}</b>（${escHtml(data.techReviewTime)}）<br>
       ${data.driChoice === '放行' ? `批量/不良數：${escHtml(data.batchQty)} / ${escHtml(data.defectCount)}（不良率 ${escHtml(data.defectRate)}）<br>放行條件：${escHtml(data.releaseCondition)}<br>` : ''}
       ${data.driChoice === '重工' ? `重工流程：${escHtml(data.reworkProcess)}<br>` : ''}
-      佐證檔案：${data.evidenceUrl ? `${evidenceHtml(data.evidenceUrl)}` : '（無）'}
+      佐證檔案：${data.respEvidenceUrl ? `${evidenceHtml(data.respEvidenceUrl)}` : '（無）'}
       ${data.driRemark ? `<br>DRI備註：${escHtml(data.driRemark)}` : ''}
       ${data.techReviewRemark ? `<br>技術審查備註：${escHtml(data.techReviewRemark)}` : ''}
     `;
@@ -371,7 +371,7 @@ function renderTechReviewForm(data){
       DRI：<b>${escHtml(data.driName)}</b>（${escHtml(data.driTime)}）<br>
       DRI判定：<b>${escHtml(data.driChoice)}</b><br>
       ${choiceDetail}
-      佐證檔案：${data.evidenceUrl ? `${evidenceHtml(data.evidenceUrl)}` : '（無）'}
+      佐證檔案：${data.respEvidenceUrl ? `${evidenceHtml(data.respEvidenceUrl)}` : '（無）'}
       ${data.driRemark ? `<br>DRI備註：${escHtml(data.driRemark)}` : ''}
     `;
   app.innerHTML = `
@@ -511,7 +511,7 @@ function renderQAManagerForm(data){
     <div class="readonly-box">
       品保工程師：<b>${escHtml(data.qaEngName)}</b>（${escHtml(data.qaEngTime)}）<br>
       放行理由：${escHtml(data.qaEngRemark)}<br>
-      佐證檔案：${data.evidenceUrl ? `${evidenceHtml(data.evidenceUrl)}` : '（無）'}
+      佐證檔案：${data.respEvidenceUrl ? `${evidenceHtml(data.respEvidenceUrl)}` : '（無）'}
     </div>
     <label>審查人姓名</label>
     <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
