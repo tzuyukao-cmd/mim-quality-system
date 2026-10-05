@@ -201,6 +201,21 @@ function escHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 // ★ 2026-10-02：公司網路連不到drive.google.com，照片連結改走drive.usercontent.google.com開啟
+// ★ 2026-10-06新增：Google偶發回傳「很抱歉，目前無法開啟這個檔案」的HTML錯誤頁(非JSON)，
+//   原本直接顯示「Unexpected token '<'」看不懂。讀取類自動重試2次；寫入類不重試(避免重複送出)，
+//   改顯示看得懂的提示，請使用者重新整理確認狀態。
+const BUSY_READ_MSG = '系統暫時忙碌，請稍後重新整理頁面再試一次。';
+async function parseJsonOrBusy(res, writeMsg){
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch(e){ const err = new Error(writeMsg || BUSY_READ_MSG); err.friendly = true; throw err; }
+}
+async function fetchJsonRetry(url){
+  for(let i = 0; ; i++){
+    try { return await parseJsonOrBusy(await fetch(url)); }
+    catch(err){ if(!err.friendly || i >= 2) throw err; await new Promise(r => setTimeout(r, 1500)); }
+  }
+}
 function evidenceViewUrl(url){
   const m = String(url||'').match(/\/d\/([\w-]+)|[?&]id=([\w-]+)/);
   return m ? 'https://drive.usercontent.google.com/download?id=' + (m[1]||m[2]) + '&export=view' : String(url||'');
@@ -252,13 +267,12 @@ function statusPill(status){
 
 async function loadList(){
   try{
-    const res = await fetch(API_URL + '?action=listTickets');
-    const data = await res.json();
+    const data = await fetchJsonRetry(API_URL + '?action=listTickets');
     if(!data.ok){ document.getElementById('tbody').innerHTML = `<tr><td colspan="19" class="loading">讀取失敗：${escHtml(data.error)}</td></tr>`; return; }
     allRows = data.rows || [];
     renderList();
   }catch(err){
-    document.getElementById('tbody').innerHTML = `<tr><td colspan="19" class="loading">連線失敗：${escHtml(err.message)}</td></tr>`;
+    document.getElementById('tbody').innerHTML = `<tr><td colspan="19" class="loading">${err.friendly ? escHtml(err.message) : '連線失敗：' + escHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -365,8 +379,7 @@ document.getElementById('btnLookup').addEventListener('click', async ()=>{
   resultsBox.innerHTML = '<div class="lookup-item">查詢中…</div>';
   resultsBox.classList.add('show');
   try{
-    const res = await fetch(SINTER_API_URL + '?action=getData');
-    const data = await res.json();
+    const data = await fetchJsonRetry(SINTER_API_URL + '?action=getData');
     if(!data.ok){ resultsBox.innerHTML = '<div class="lookup-item">查詢失敗：'+escHtml(data.error)+'</div>'; return; }
     let rows = data.data || [];
     if(dateVal) rows = rows.filter(r => toYMD(r.date) === dateVal);
@@ -435,7 +448,7 @@ document.getElementById('btnSubmit').addEventListener('click', async ()=>{
         evidenceFileName, evidenceMimeType, evidenceFileBase64
       }})
     });
-    const data = await res.json();
+    const data = await parseJsonOrBusy(res, '系統暫時忙碌，異常單可能已經建立。請先到「簽核總表」重新整理確認，沒有看到再重新送出，避免重複開單。');
     if(!data.ok){
       msgBox.className='msg err'; msgBox.textContent='送出失敗：'+data.error;
       btn.disabled=false; btn.textContent='送出，建立異常單';
@@ -452,7 +465,7 @@ document.getElementById('btnSubmit').addEventListener('click', async ()=>{
     // 建單成功後，如果使用者切回「簽核總表」分頁，順便重新整理一次清單
     loadList();
   }catch(err){
-    msgBox.className='msg err'; msgBox.textContent='送出發生錯誤：'+err.message;
+    msgBox.className='msg err'; msgBox.textContent = err.friendly ? err.message : '送出發生錯誤：'+err.message;
     btn.disabled=false; btn.textContent='送出，建立異常單';
   }
 });
