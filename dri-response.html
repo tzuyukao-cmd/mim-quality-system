@@ -427,17 +427,21 @@ function renderTechReviewForm(data){
 }
 
 function renderQAEngineerForm(data){
+  // ★ 2026-10-05補上(比照renderDriForm)：data.qaEngChoice有值代表品保主管或大主管駁回後的重新回應，
+  // 這次只能選退回上一站，不能再選放行重送。
+  const isRetryAfterReject = !!data.qaEngChoice;
   app.innerHTML = `
     <h1>特採簽核 - 品保工程師判定(外觀不良)</h1>
     <div class="ticket-no">${escHtml(data.ticketNo)}</div>
     ${renderFactsTable(data.ticket, data.defectItems, data.evidenceUrl)}
+    ${isRetryAfterReject ? `<div class="msg err" style="display:block;">此單先前放行後被駁回，這次只能選擇退回上一站。</div>` : ''}
     <label>回應人姓名</label>
     <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
     <label>密碼</label>
     <input type="password" id="f_password" placeholder="個人密碼(初始為工號)">
     <label>判定</label>
     <div class="choice-row" id="choiceRow">
-      <button type="button" class="choice-btn" data-v="放行">放行</button>
+      ${isRetryAfterReject ? '' : `<button type="button" class="choice-btn" data-v="放行">放行</button>`}
       <button type="button" class="choice-btn" data-v="退回上一站">退回上一站</button>
     </div>
     <div class="release-condition" id="releaseBox">
