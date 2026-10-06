@@ -60,6 +60,7 @@
   .choice-row{display:flex;gap:8px;margin-top:6px;}
   .choice-btn{flex:1;padding:10px;border:1.5px solid #ccc;border-radius:6px;background:#fff;cursor:pointer;font-weight:700;font-size:14px;}
   .choice-btn.sel{border-color:#2563eb;background:#eff6ff;color:#2563eb;}
+  .choice-btn:disabled{opacity:.4;cursor:not-allowed;}
   .req{color:#c0392b;}
   .rate-hint{font-size:12px;color:#888;margin-top:4px;}
   .submit-btn{margin-top:20px;width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:15px;font-weight:700;cursor:pointer;}
@@ -99,6 +100,7 @@
         <thead><tr>
           <th data-k="ticketNo">異常單號</th>
           <th data-k="station">站別</th>
+          <th data-k="vendor">廠商</th>
           <th data-k="date">日期</th>
           <th data-k="furnace">爐號</th>
           <th data-k="model">模號</th>
@@ -115,9 +117,10 @@
           <th>佐證檔案</th>
           <th data-k="mgrName">大主管</th>
           <th data-k="mgrChoice">大主管回應</th>
+          <th data-k="returnTarget">退回對象</th>
           <th>操作</th>
         </tr></thead>
-        <tbody id="tbody"><tr><td colspan="19" class="loading">讀取中…</td></tr></tbody>
+        <tbody id="tbody"><tr><td colspan="21" class="loading">讀取中…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -133,22 +136,28 @@
     <select id="f_station">
       <option value="燒結">燒結</option>
       <option value="射出" disabled>射出(即將開放)</option>
-      <option value="進料" disabled>進料(即將開放)</option>
+      <option value="進料">進料(目前僅外觀不良)</option>
     </select>
 
-    <label>查詢帶入燒結資料（選填，方便帶入品名／工單號）</label>
+    <label id="lookupLabel">查詢帶入燒結資料（選填，方便帶入品名／工單號）</label>
     <div class="lookup-row">
       <div><input type="date" id="f_lookupDate" placeholder="日期"></div>
       <div><input type="text" id="f_lookupFurnace" placeholder="爐號"></div>
       <button type="button" class="lookup-btn" id="btnLookup">🔍 查詢</button>
     </div>
-    <div class="lookup-hint">輸入日期＋爐號查詢燒結明細表，點選查詢結果可帶入下方欄位（僅供參考，仍可自行修改）。</div>
+    <div class="lookup-hint" id="lookupHint">輸入日期＋爐號查詢燒結明細表，點選查詢結果可帶入下方欄位（僅供參考，仍可自行修改）。</div>
     <div class="lookup-results" id="lookupResults"></div>
 
     <label>日期 <span class="req">*</span></label>
     <input type="date" id="f_date">
 
-    <label>爐號／機台代號</label>
+    <div id="vendorBox" style="display:none;">
+      <label>廠商 <span class="req">*</span></label>
+      <input type="text" id="f_vendor" list="vendorList" placeholder="例如：博皓">
+      <datalist id="vendorList"></datalist>
+    </div>
+
+    <label id="equipmentLabel">爐號／機台代號</label>
     <input type="text" id="f_equipment" placeholder="例如：205">
 
     <label>工單號</label>
@@ -196,6 +205,9 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxWZB8U3HaU7m9TZsQ85PzR
 // 燒結明細表的既有後端，只用來「查詢帶入」，唯讀，不會寫入任何資料
 const SINTER_API_URL = 'https://script.google.com/macros/s/AKfycbzkQo6Rsm6bQRMJqVjxi7N64KsPQX1j_ibtV39oDhcBg8wOVwfcq5koXNNknrtl8shjIg/exec';
 const DRI_FORM_BASE_URL = 'https://tzuyukao-cmd.github.io/mim-quality-system/dri-response.html';
+// ★ 2026-10-06新增：進料檢驗(IQC)既有後端，只用來「查詢帶入」，唯讀；廠商清單同 index.html 的 IQC_VENDOR_OPTIONS
+const IQC_API_URL = 'https://script.google.com/macros/s/AKfycbxCTM_oMNcMPpejo_0GBrngI5PEChYr1A0EEV5sSygT1RSLX3p9CeJzJdeOnJUS7Cq4kg/exec';
+const IQC_VENDOR_OPTIONS = ['博皓','銘翰','特異','煌瑋','登旺','光國','三廠','協光','晃成'];
 
 function escHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -268,11 +280,11 @@ function statusPill(status){
 async function loadList(){
   try{
     const data = await fetchJsonRetry(API_URL + '?action=listTickets');
-    if(!data.ok){ document.getElementById('tbody').innerHTML = `<tr><td colspan="19" class="loading">讀取失敗：${escHtml(data.error)}</td></tr>`; return; }
+    if(!data.ok){ document.getElementById('tbody').innerHTML = `<tr><td colspan="21" class="loading">讀取失敗：${escHtml(data.error)}</td></tr>`; return; }
     allRows = data.rows || [];
     renderList();
   }catch(err){
-    document.getElementById('tbody').innerHTML = `<tr><td colspan="19" class="loading">${err.friendly ? escHtml(err.message) : '連線失敗：' + escHtml(err.message)}</td></tr>`;
+    document.getElementById('tbody').innerHTML = `<tr><td colspan="21" class="loading">${err.friendly ? escHtml(err.message) : '連線失敗：' + escHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -282,7 +294,7 @@ function renderList(){
   let rows = allRows.filter(r=>{
     if(statusFilter && r.status !== statusFilter) return false;
     if(!kw) return true;
-    return ['ticketNo','furnace','model','wo','driName','mgrName'].some(k => String(r[k]||'').toLowerCase().includes(kw));
+    return ['ticketNo','furnace','model','wo','driName','mgrName','vendor'].some(k => String(r[k]||'').toLowerCase().includes(kw));
   });
   rows.sort((a,b)=>{
     const av = String(a[sortKey]||''), bv = String(b[sortKey]||'');
@@ -294,6 +306,7 @@ function renderList(){
     <tr>
       <td>${escHtml(r.ticketNo)}</td>
       <td>${escHtml(r.station)}</td>
+      <td>${escHtml(r.vendor)}</td>
       <td>${escHtml(r.date)}</td>
       <td>${escHtml(r.furnace)}</td>
       <td>${escHtml(r.model)}</td>
@@ -310,9 +323,10 @@ function renderList(){
       <td>${r.evidenceUrl ? `<a class="link-btn" href="${escHtml(evidenceViewUrl(r.evidenceUrl))}" target="_blank">查看 →</a>` : ''}</td>
       <td>${escHtml(r.mgrName)}</td>
       <td>${escHtml(r.mgrChoice)}</td>
+      <td>${escHtml(r.returnTarget)}</td>
       <td><a class="link-btn" href="${DRI_FORM_BASE_URL}?ticket=${encodeURIComponent(r.ticketNo)}" target="_blank">查看/處理 →</a></td>
     </tr>
-  `).join('') || `<tr><td colspan="19" class="loading">沒有符合條件的資料</td></tr>`;
+  `).join('') || `<tr><td colspan="21" class="loading">沒有符合條件的資料</td></tr>`;
 
   document.querySelectorAll('th[data-k]').forEach(th=>{
     th.classList.toggle('sorted', th.dataset.k === sortKey);
@@ -341,6 +355,29 @@ function toYMD(dateDisplay){
 }
 
 let defectType = '';
+// ★ 2026-10-06新增：站別切換。進料：查詢改查進料檢驗(日期＋工單號)、顯示廠商欄、目前只開放外觀不良
+function isIQC(){ return document.getElementById('f_station').value === '進料'; }
+function applyStation(){
+  const iqc = isIQC();
+  document.getElementById('lookupLabel').textContent = iqc ? '查詢帶入進料檢驗資料（選填，方便帶入品名／工單號／廠商）' : '查詢帶入燒結資料（選填，方便帶入品名／工單號）';
+  document.getElementById('f_lookupFurnace').placeholder = iqc ? '工單號(可只打後幾碼)' : '爐號';
+  document.getElementById('lookupHint').textContent = iqc
+    ? '輸入日期＋工單號查詢進料檢驗紀錄，點選查詢結果可帶入下方欄位（僅供參考，仍可自行修改）。'
+    : '輸入日期＋爐號查詢燒結明細表，點選查詢結果可帶入下方欄位（僅供參考，仍可自行修改）。';
+  document.getElementById('vendorBox').style.display = iqc ? '' : 'none';
+  document.getElementById('equipmentLabel').textContent = iqc ? '烘烤批／批號' : '爐號／機台代號';
+  document.getElementById('f_equipment').placeholder = iqc ? '例如：9/15-203' : '例如：205';
+  const dimBtn = document.querySelector('#defectTypeRow .choice-btn[data-v="尺寸NG"]');
+  dimBtn.disabled = iqc;
+  dimBtn.title = iqc ? '進料尺寸NG尚未開放' : '';
+  if(iqc && defectType === '尺寸NG'){
+    defectType = '';
+    dimBtn.classList.remove('sel');
+  }
+  document.getElementById('lookupResults').classList.remove('show');
+}
+document.getElementById('vendorList').innerHTML = IQC_VENDOR_OPTIONS.map(v => '<option value="'+escHtml(v)+'"></option>').join('');
+document.getElementById('f_station').addEventListener('change', applyStation);
 document.querySelectorAll('#defectTypeRow .choice-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     defectType = btn.dataset.v;
@@ -373,11 +410,12 @@ document.getElementById('btnLookup').addEventListener('click', async ()=>{
   const msgBox = document.getElementById('msgBox');
   msgBox.className = 'msg';
   if(!dateVal && !furnaceVal){
-    msgBox.className = 'msg err'; msgBox.textContent = '請至少輸入日期或爐號其中一項再查詢';
+    msgBox.className = 'msg err'; msgBox.textContent = isIQC() ? '請至少輸入日期或工單號其中一項再查詢' : '請至少輸入日期或爐號其中一項再查詢';
     return;
   }
   resultsBox.innerHTML = '<div class="lookup-item">查詢中…</div>';
   resultsBox.classList.add('show');
+  if(isIQC()){ await lookupIQC(dateVal, furnaceVal, resultsBox, msgBox); return; }
   try{
     const data = await fetchJsonRetry(SINTER_API_URL + '?action=getData');
     if(!data.ok){ resultsBox.innerHTML = '<div class="lookup-item">查詢失敗：'+escHtml(data.error)+'</div>'; return; }
@@ -407,6 +445,46 @@ document.getElementById('btnLookup').addEventListener('click', async ()=>{
   }
 });
 
+async function lookupIQC(dateVal, woVal, resultsBox, msgBox){
+  try{
+    const res = await fetch(IQC_API_URL, {
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'getData', payload:{action:'getData'}})
+    });
+    const data = await parseJsonOrBusy(res);
+    if(!data.ok){ resultsBox.innerHTML = '<div class="lookup-item">查詢失敗：'+escHtml(data.error)+'</div>'; return; }
+    let rows = data.data || [];
+    if(dateVal) rows = rows.filter(r => toYMD(r.date) === dateVal);
+    if(woVal) rows = rows.filter(r => String(r.wo||'').toUpperCase().includes(woVal.toUpperCase()));
+    rows = rows.slice().reverse();
+    if(rows.length === 0){
+      resultsBox.innerHTML = '<div class="lookup-item">查無符合的進料檢驗紀錄，請直接手動填寫下方欄位</div>';
+      return;
+    }
+    resultsBox.innerHTML = rows.slice(0,15).map((r,i)=>
+      `<div class="lookup-item" data-i="${i}"><b>${escHtml(r.date)} ${escHtml(r.wo)}</b>　${escHtml(r.vendor)}　${escHtml(r.partName)}　判定:${escHtml(r.verdict)}</div>`
+    ).join('');
+    resultsBox.querySelectorAll('.lookup-item[data-i]').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const r = rows[Number(el.dataset.i)];
+        document.getElementById('f_date').value = toYMD(r.date) || '';
+        document.getElementById('f_vendor').value = r.vendor || '';
+        document.getElementById('f_equipment').value = r.bake || '';
+        document.getElementById('f_workOrder').value = r.wo || '';
+        document.getElementById('f_model').value = r.partName || '';
+        // 「批量/抽樣數」例如 2440/125，取前面的批量帶入
+        const m = String(r.sample||'').match(/^\s*(\d+)/);
+        if(m){ document.getElementById('f_batchQty').value = m[1]; updateRateHint(); }
+        if(r.desc && !document.getElementById('f_defectItems').value) document.getElementById('f_defectItems').value = r.desc;
+        resultsBox.classList.remove('show');
+        msgBox.className = 'msg ok'; msgBox.textContent = '已帶入「'+(r.partName||r.wo)+'」的進料檢驗資料，請確認後繼續填寫。';
+      });
+    });
+  }catch(err){
+    resultsBox.innerHTML = '<div class="lookup-item">查詢發生錯誤：'+escHtml(err.message)+'</div>';
+  }
+}
+
 document.getElementById('btnSubmit').addEventListener('click', async ()=>{
   const msgBox = document.getElementById('msgBox');
   msgBox.className = 'msg';
@@ -415,6 +493,7 @@ document.getElementById('btnSubmit').addEventListener('click', async ()=>{
   const equipment = document.getElementById('f_equipment').value.trim();
   const workOrder = document.getElementById('f_workOrder').value.trim();
   const model = document.getElementById('f_model').value.trim();
+  const vendor = station === '進料' ? document.getElementById('f_vendor').value.trim() : '';
   const batchQty = document.getElementById('f_batchQty').value.trim();
   const defectCount = document.getElementById('f_defectCount').value.trim();
   const defectItems = document.getElementById('f_defectItems').value.trim();
@@ -422,6 +501,7 @@ document.getElementById('btnSubmit').addEventListener('click', async ()=>{
 
   if(!date){ msgBox.className='msg err'; msgBox.textContent='請填寫日期'; return; }
   if(!model){ msgBox.className='msg err'; msgBox.textContent='請填寫品名'; return; }
+  if(station === '進料' && !vendor){ msgBox.className='msg err'; msgBox.textContent='進料單請填寫廠商'; return; }
   if(!defectType){ msgBox.className='msg err'; msgBox.textContent='請選擇不良分類(尺寸NG／外觀不良)'; return; }
   if(batchQty && defectCount && Number(defectCount) > Number(batchQty)){
     msgBox.className='msg err'; msgBox.textContent='不良數不能大於批量'; return;
@@ -443,7 +523,7 @@ document.getElementById('btnSubmit').addEventListener('click', async ()=>{
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({action:'createAbnormalTicket', payload:{
-        station, date, equipment, workOrder, model, defectType,
+        station, date, equipment, workOrder, model, defectType, vendor,
         batchQty, defectCount, defectItems, remark,
         evidenceFileName, evidenceMimeType, evidenceFileBase64
       }})
