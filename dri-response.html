@@ -119,8 +119,8 @@ function renderFactsTable(t, defectItems, evidenceUrl){
     ${t.station ? `<tr><td>站別</td><td>${escHtml(t.station)}</td></tr>` : ''}
     <tr><td>日期</td><td>${escHtml(t.date)}</td></tr>
     ${t.vendor ? `<tr><td>廠商</td><td>${escHtml(t.vendor)}</td></tr>` : ''}
-    <tr><td>${isIQC ? '烘烤批' : '爐號'}</td><td>${escHtml(t.furnace)}</td></tr>
-    <tr><td>${isIQC ? '品名' : '模號'}</td><td>${escHtml(t.model)}</td></tr>
+    <tr><td>${isIQC ? '烘烤批' : (t.station === '射出' ? '機台' : '爐號')}</td><td>${escHtml(t.furnace)}</td></tr>
+    <tr><td>${isIQC || t.station === '射出' ? '品名' : '模號'}</td><td>${escHtml(t.model)}</td></tr>
     <tr><td>工單號</td><td>${escHtml(t.wo)}</td></tr>
     <tr><td>判定</td><td>${escHtml(t.verdict)}</td></tr>
     ${defectItems ? `<tr><td>不良項目</td><td>${escHtml(defectItems)}</td></tr>` : ''}
