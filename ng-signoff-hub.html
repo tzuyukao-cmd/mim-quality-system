@@ -135,7 +135,7 @@
     <label>站別 <span class="req">*</span></label>
     <select id="f_station">
       <option value="燒結">燒結</option>
-      <option value="射出" disabled>射出(即將開放)</option>
+      <option value="射出">射出(目前僅外觀不良)</option>
       <option value="進料">進料(目前僅外觀不良)</option>
     </select>
 
@@ -207,6 +207,8 @@ const SINTER_API_URL = 'https://script.google.com/macros/s/AKfycbzkQo6Rsm6bQRMJq
 const DRI_FORM_BASE_URL = 'https://tzuyukao-cmd.github.io/mim-quality-system/dri-response.html';
 // ★ 2026-10-06新增：進料檢驗(IQC)既有後端，只用來「查詢帶入」，唯讀；廠商清單同 index.html 的 IQC_VENDOR_OPTIONS
 const IQC_API_URL = 'https://script.google.com/macros/s/AKfycbxCTM_oMNcMPpejo_0GBrngI5PEChYr1A0EEV5sSygT1RSLX3p9CeJzJdeOnJUS7Cq4kg/exec';
+// ★ 2026-10-06新增：射出成形既有後端，只用來「查詢帶入」，唯讀(GET ?action=getData，資料多，回應可能要數十秒)
+const INJ_API_URL = 'https://script.google.com/macros/s/AKfycby91gZgMX8rlLOhXPqb3pVDayUOt-r2IKkNrhfhTZVhQFAndoA7CuheBU-RgTNjUI7W/exec';
 const IQC_VENDOR_OPTIONS = ['博皓','銘翰','特異','煌瑋','登旺','光國','三廠','協光','晃成'];
 
 function escHtml(s){
@@ -357,20 +359,25 @@ function toYMD(dateDisplay){
 let defectType = '';
 // ★ 2026-10-06新增：站別切換。進料：查詢改查進料檢驗(日期＋工單號)、顯示廠商欄、目前只開放外觀不良
 function isIQC(){ return document.getElementById('f_station').value === '進料'; }
+function isINJ(){ return document.getElementById('f_station').value === '射出'; }
 function applyStation(){
-  const iqc = isIQC();
-  document.getElementById('lookupLabel').textContent = iqc ? '查詢帶入進料檢驗資料（選填，方便帶入品名／工單號／廠商）' : '查詢帶入燒結資料（選填，方便帶入品名／工單號）';
-  document.getElementById('f_lookupFurnace').placeholder = iqc ? '工單號(可只打後幾碼)' : '爐號';
+  const iqc = isIQC(), inj = isINJ();
+  const st = document.getElementById('f_station').value;
+  document.getElementById('lookupLabel').textContent = iqc ? '查詢帶入進料檢驗資料（選填，方便帶入品名／工單號／廠商）'
+    : (inj ? '查詢帶入射出成形資料（選填，方便帶入品名／機台）' : '查詢帶入燒結資料（選填，方便帶入品名／工單號）');
+  document.getElementById('f_lookupFurnace').placeholder = iqc ? '工單號(可只打後幾碼)' : (inj ? '機台號' : '爐號');
   document.getElementById('lookupHint').textContent = iqc
     ? '輸入日期＋工單號查詢進料檢驗紀錄，點選查詢結果可帶入下方欄位（僅供參考，仍可自行修改）。'
-    : '輸入日期＋爐號查詢燒結明細表，點選查詢結果可帶入下方欄位（僅供參考，仍可自行修改）。';
+    : (inj ? '輸入日期＋機台號查詢射出成形明細，點選查詢結果可帶入下方欄位（射出資料較多，查詢可能要數十秒）。'
+           : '輸入日期＋爐號查詢燒結明細表，點選查詢結果可帶入下方欄位（僅供參考，仍可自行修改）。');
   document.getElementById('vendorBox').style.display = iqc ? '' : 'none';
-  document.getElementById('equipmentLabel').textContent = iqc ? '烘烤批／批號' : '爐號／機台代號';
-  document.getElementById('f_equipment').placeholder = iqc ? '例如：9/15-203' : '例如：205';
+  document.getElementById('equipmentLabel').textContent = iqc ? '烘烤批／批號' : (inj ? '機台' : '爐號／機台代號');
+  document.getElementById('f_equipment').placeholder = iqc ? '例如：9/15-203' : (inj ? '例如：105' : '例如：205');
+  const appearanceOnly = iqc || inj;
   const dimBtn = document.querySelector('#defectTypeRow .choice-btn[data-v="尺寸NG"]');
-  dimBtn.disabled = iqc;
-  dimBtn.title = iqc ? '進料尺寸NG尚未開放' : '';
-  if(iqc && defectType === '尺寸NG'){
+  dimBtn.disabled = appearanceOnly;
+  dimBtn.title = appearanceOnly ? st + '尺寸NG尚未開放' : '';
+  if(appearanceOnly && defectType === '尺寸NG'){
     defectType = '';
     dimBtn.classList.remove('sel');
   }
@@ -410,12 +417,13 @@ document.getElementById('btnLookup').addEventListener('click', async ()=>{
   const msgBox = document.getElementById('msgBox');
   msgBox.className = 'msg';
   if(!dateVal && !furnaceVal){
-    msgBox.className = 'msg err'; msgBox.textContent = isIQC() ? '請至少輸入日期或工單號其中一項再查詢' : '請至少輸入日期或爐號其中一項再查詢';
+    msgBox.className = 'msg err'; msgBox.textContent = isIQC() ? '請至少輸入日期或工單號其中一項再查詢' : (isINJ() ? '請至少輸入日期或機台號其中一項再查詢' : '請至少輸入日期或爐號其中一項再查詢');
     return;
   }
   resultsBox.innerHTML = '<div class="lookup-item">查詢中…</div>';
   resultsBox.classList.add('show');
   if(isIQC()){ await lookupIQC(dateVal, furnaceVal, resultsBox, msgBox); return; }
+  if(isINJ()){ await lookupINJ(dateVal, furnaceVal, resultsBox, msgBox); return; }
   try{
     const data = await fetchJsonRetry(SINTER_API_URL + '?action=getData');
     if(!data.ok){ resultsBox.innerHTML = '<div class="lookup-item">查詢失敗：'+escHtml(data.error)+'</div>'; return; }
@@ -444,6 +452,39 @@ document.getElementById('btnLookup').addEventListener('click', async ()=>{
     resultsBox.innerHTML = '<div class="lookup-item">查詢發生錯誤：'+escHtml(err.message)+'</div>';
   }
 });
+
+async function lookupINJ(dateVal, machineVal, resultsBox, msgBox){
+  resultsBox.innerHTML = '<div class="lookup-item">查詢中…（射出資料較多，可能要數十秒）</div>';
+  try{
+    const data = await fetchJsonRetry(INJ_API_URL + '?action=getData');
+    if(!data.ok){ resultsBox.innerHTML = '<div class="lookup-item">查詢失敗：'+escHtml(data.error)+'</div>'; return; }
+    let rows = data.data || [];
+    if(dateVal) rows = rows.filter(r => toYMD(r.date) === dateVal);
+    if(machineVal) rows = rows.filter(r => String(r.machine||'').trim() === machineVal);
+    rows = rows.slice().reverse();
+    if(rows.length === 0){
+      resultsBox.innerHTML = '<div class="lookup-item">查無符合的射出成形紀錄，請直接手動填寫下方欄位</div>';
+      return;
+    }
+    const cleanName = s => String(s||'').replace(/\s+/g, ' ').trim();
+    resultsBox.innerHTML = rows.slice(0,15).map((r,i)=>
+      `<div class="lookup-item" data-i="${i}"><b>${escHtml(r.date)} 機台${escHtml(r.machine)}</b>　${escHtml(cleanName(r.partName))}　外觀:${escHtml(r.appearance)}　判定:${escHtml(r.verdict)}</div>`
+    ).join('');
+    resultsBox.querySelectorAll('.lookup-item[data-i]').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const r = rows[Number(el.dataset.i)];
+        document.getElementById('f_date').value = toYMD(r.date) || '';
+        document.getElementById('f_equipment').value = r.machine || '';
+        document.getElementById('f_model').value = cleanName(r.partName);
+        if(r.remark && !document.getElementById('f_defectItems').value) document.getElementById('f_defectItems').value = r.remark;
+        resultsBox.classList.remove('show');
+        msgBox.className = 'msg ok'; msgBox.textContent = '已帶入「'+cleanName(r.partName)+'」的射出成形資料，請確認後繼續填寫。';
+      });
+    });
+  }catch(err){
+    resultsBox.innerHTML = '<div class="lookup-item">查詢發生錯誤：'+escHtml(err.message)+'</div>';
+  }
+}
 
 async function lookupIQC(dateVal, woVal, resultsBox, msgBox){
   try{
