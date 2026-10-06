@@ -449,11 +449,14 @@ function renderQAEngineerForm(data){
   // ★ 2026-10-05補上(比照renderDriForm)：data.qaEngChoice有值代表品保主管或大主管駁回後的重新回應，
   // 這次只能選退回上一站，不能再選放行重送。
   const isRetryAfterReject = !!data.qaEngChoice;
+  // ★ 2026-10-06：射出沒有上一站，不放行時改為「重新射出」，不用選退回對象
+  const backChoice = (data.ticket && data.ticket.station === '射出') ? '重新射出' : '退回上一站';
+  const needTarget = backChoice === '退回上一站';
   app.innerHTML = `
     <h1>特採簽核 - 品保工程師判定(外觀不良)</h1>
     <div class="ticket-no">${escHtml(data.ticketNo)}</div>
     ${renderFactsTable(data.ticket, data.defectItems, data.evidenceUrl)}
-    ${isRetryAfterReject ? `<div class="msg err" style="display:block;">此單先前放行後被駁回，這次只能選擇退回上一站。</div>` : ''}
+    ${isRetryAfterReject ? `<div class="msg err" style="display:block;">此單先前放行後被駁回，這次只能選擇${backChoice}。</div>` : ''}
     <label>回應人姓名</label>
     <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
     <label>密碼</label>
@@ -461,7 +464,7 @@ function renderQAEngineerForm(data){
     <label>判定</label>
     <div class="choice-row" id="choiceRow">
       ${isRetryAfterReject ? '' : `<button type="button" class="choice-btn" data-v="放行">放行</button>`}
-      <button type="button" class="choice-btn" data-v="退回上一站">退回上一站</button>
+      <button type="button" class="choice-btn" data-v="${backChoice}">${backChoice}</button>
     </div>
     <div class="release-condition" id="releaseBox">
       <label>⚠️ 放行理由(必填)</label>
@@ -470,14 +473,14 @@ function renderQAEngineerForm(data){
       <input type="file" id="f_evidence">
     </div>
     <div class="release-condition" id="backBox">
-      <label>⚠️ 退回對象(必填)</label>
+      ${needTarget ? `<label>⚠️ 退回對象(必填)</label>
       <div class="choice-row" id="targetRow">
         <button type="button" class="choice-btn" data-t="廠商">廠商</button>
         <button type="button" class="choice-btn" data-t="廠內">廠內</button>
       </div>
-      <input type="text" id="f_target" placeholder="請先選擇廠商或廠內" style="margin-top:8px;">
+      <input type="text" id="f_target" placeholder="請先選擇廠商或廠內" style="margin-top:8px;">` : ''}
       <label>備註(選填)</label>
-      <textarea id="f_remark_back" placeholder="可說明退回原因"></textarea>
+      <textarea id="f_remark_back" placeholder="${needTarget ? '可說明退回原因' : '可說明重新射出的原因'}"></textarea>
     </div>
     <button class="submit-btn" id="submitBtn">送出</button>
     <div class="msg" id="msgBox"></div>
@@ -489,7 +492,7 @@ function renderQAEngineerForm(data){
       choice = btn.dataset.v;
       document.querySelectorAll('#choiceRow .choice-btn').forEach(b=>b.classList.toggle('sel', b===btn));
       document.getElementById('releaseBox').classList.toggle('show', choice==='放行');
-      document.getElementById('backBox').classList.toggle('show', choice==='退回上一站');
+      document.getElementById('backBox').classList.toggle('show', choice===backChoice);
     };
   });
   // ★ 2026-10-06新增：退回上一站要指定退回對象。選「廠商」時自動帶入單據上的廠商(可改)
@@ -515,8 +518,8 @@ function renderQAEngineerForm(data){
       ? document.getElementById('f_remark_release').value.trim()
       : document.getElementById('f_remark_back').value.trim();
     if(choice==='放行' && !remark){ msgBox.className='msg err'; msgBox.textContent='選擇放行時必須填寫放行理由'; return; }
-    const targetName = document.getElementById('f_target').value.trim();
-    if(choice==='退回上一站' && (!targetType || !targetName)){ msgBox.className='msg err'; msgBox.textContent='請選擇退回對象(廠商／廠內)並填寫名稱'; return; }
+    const targetName = needTarget ? document.getElementById('f_target').value.trim() : '';
+    if(needTarget && choice==='退回上一站' && (!targetType || !targetName)){ msgBox.className='msg err'; msgBox.textContent='請選擇退回對象(廠商／廠內)並填寫名稱'; return; }
     const evidenceInput = document.getElementById('f_evidence');
     const evidenceFile = evidenceInput && evidenceInput.files[0];
     document.getElementById('submitBtn').disabled = true;
