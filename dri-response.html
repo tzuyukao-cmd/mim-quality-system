@@ -114,13 +114,17 @@ function evidenceHtml(url){
 //   決定放行或駁回「之前」就看得到，不是等回應完才在摘要裡出現，所以補進這張待處理
 //   畫面的事實表格，不是另外等結果畫面才顯示。
 function renderFactsTable(t, defectItems, evidenceUrl){
+  const isIQC = t.station === '進料';
   return `<table class="facts">
+    ${t.station ? `<tr><td>站別</td><td>${escHtml(t.station)}</td></tr>` : ''}
     <tr><td>日期</td><td>${escHtml(t.date)}</td></tr>
-    <tr><td>爐號</td><td>${escHtml(t.furnace)}</td></tr>
-    <tr><td>模號</td><td>${escHtml(t.model)}</td></tr>
+    ${t.vendor ? `<tr><td>廠商</td><td>${escHtml(t.vendor)}</td></tr>` : ''}
+    <tr><td>${isIQC ? '烘烤批' : '爐號'}</td><td>${escHtml(t.furnace)}</td></tr>
+    <tr><td>${isIQC ? '品名' : '模號'}</td><td>${escHtml(t.model)}</td></tr>
     <tr><td>工單號</td><td>${escHtml(t.wo)}</td></tr>
     <tr><td>判定</td><td>${escHtml(t.verdict)}</td></tr>
     ${defectItems ? `<tr><td>不良項目</td><td>${escHtml(defectItems)}</td></tr>` : ''}
+    ${t.remark ? `<tr><td>開單備註</td><td>${escHtml(t.remark)}</td></tr>` : ''}
     ${evidenceUrl ? `<tr><td>現場照片</td><td>${evidenceHtml(evidenceUrl)}</td></tr>` : ''}
   </table>`;
 }
@@ -176,6 +180,7 @@ function renderReadonly(data){
       目前狀態：<b>${escHtml(data.status)}</b>
       ${result ? `<br>結果：${escHtml(result)}` : ''}
       ${isQA ? `
+        ${data.returnTarget ? `<br>退回對象：<b>${escHtml(data.returnTarget)}</b>` : ''}
         ${data.qaEngRemark ? `<br>放行理由/備註：${escHtml(data.qaEngRemark)}` : ''}
       ` : `
         ${data.batchQty ? `<br>批量/不良數：${escHtml(data.batchQty)} / ${escHtml(data.defectCount)}（不良率 ${escHtml(data.defectRate)}）` : ''}
@@ -465,6 +470,12 @@ function renderQAEngineerForm(data){
       <input type="file" id="f_evidence">
     </div>
     <div class="release-condition" id="backBox">
+      <label>⚠️ 退回對象(必填)</label>
+      <div class="choice-row" id="targetRow">
+        <button type="button" class="choice-btn" data-t="廠商">廠商</button>
+        <button type="button" class="choice-btn" data-t="廠內">廠內</button>
+      </div>
+      <input type="text" id="f_target" placeholder="請先選擇廠商或廠內" style="margin-top:8px;">
       <label>備註(選填)</label>
       <textarea id="f_remark_back" placeholder="可說明退回原因"></textarea>
     </div>
@@ -481,6 +492,18 @@ function renderQAEngineerForm(data){
       document.getElementById('backBox').classList.toggle('show', choice==='退回上一站');
     };
   });
+  // ★ 2026-10-06新增：退回上一站要指定退回對象。選「廠商」時自動帶入單據上的廠商(可改)
+  let targetType = '';
+  document.querySelectorAll('#targetRow .choice-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      targetType = btn.dataset.t;
+      document.querySelectorAll('#targetRow .choice-btn').forEach(b=>b.classList.toggle('sel', b===btn));
+      const inp = document.getElementById('f_target');
+      inp.placeholder = targetType==='廠商' ? '廠商名稱，例如：博皓' : '退回的站別／單位，例如：整形、三廠';
+      inp.value = targetType==='廠商' ? ((data.ticket && data.ticket.vendor) || '') : '';
+      inp.focus();
+    };
+  });
   document.getElementById('submitBtn').onclick = async ()=>{
     const name = document.getElementById('f_name').value.trim();
     const password = document.getElementById('f_password').value;
@@ -492,11 +515,14 @@ function renderQAEngineerForm(data){
       ? document.getElementById('f_remark_release').value.trim()
       : document.getElementById('f_remark_back').value.trim();
     if(choice==='放行' && !remark){ msgBox.className='msg err'; msgBox.textContent='選擇放行時必須填寫放行理由'; return; }
+    const targetName = document.getElementById('f_target').value.trim();
+    if(choice==='退回上一站' && (!targetType || !targetName)){ msgBox.className='msg err'; msgBox.textContent='請選擇退回對象(廠商／廠內)並填寫名稱'; return; }
     const evidenceInput = document.getElementById('f_evidence');
     const evidenceFile = evidenceInput && evidenceInput.files[0];
     document.getElementById('submitBtn').disabled = true;
     try{
       const payload = {ticketNo: data.ticketNo, name, password, choice, remark};
+      if(choice==='退回上一站') payload.returnTarget = targetType + '：' + targetName;
       if(choice==='放行' && evidenceFile){
         payload.evidenceFileName = evidenceFile.name;
         payload.evidenceMimeType = evidenceFile.type;
