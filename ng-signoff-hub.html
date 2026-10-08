@@ -137,6 +137,8 @@
       <option value="燒結">燒結</option>
       <option value="射出">射出(目前僅外觀不良)</option>
       <option value="進料">進料(目前僅外觀不良)</option>
+      <option value="整形">整形</option>
+      <option value="噴砂清洗">噴砂清洗</option>
     </select>
 
     <label id="lookupLabel">查詢帶入燒結資料（選填，方便帶入品名／工單號）</label>
@@ -209,6 +211,9 @@ const DRI_FORM_BASE_URL = 'https://tzuyukao-cmd.github.io/mim-quality-system/dri
 const IQC_API_URL = 'https://script.google.com/macros/s/AKfycbxCTM_oMNcMPpejo_0GBrngI5PEChYr1A0EEV5sSygT1RSLX3p9CeJzJdeOnJUS7Cq4kg/exec';
 // ★ 2026-10-06新增：射出成形既有後端，只用來「查詢帶入」，唯讀(GET ?action=getData，資料多，回應可能要數十秒)
 const INJ_API_URL = 'https://script.google.com/macros/s/AKfycby91gZgMX8rlLOhXPqb3pVDayUOt-r2IKkNrhfhTZVhQFAndoA7CuheBU-RgTNjUI7W/exec';
+// ★ 2026-10-08新增：整形、噴砂清洗既有後端，只用來「查詢帶入」，唯讀(POST {action:getData})
+const RESHAPE_API_URL = 'https://script.google.com/macros/s/AKfycbzNQDkPfFtFM-M8z6PjBsJuqNTmlQDhrPJG45MGliGFUbgYhLKrgm36IEsfH1NqjocKcQ/exec';
+const BLAST_API_URL = 'https://script.google.com/macros/s/AKfycbwhI9n3bi0toJok3J5HGVj7XhMLaaX-Z6H3pOKljIuwUk9vtPdJTxel1X6_vbp4AYk/exec';
 const IQC_VENDOR_OPTIONS = ['博皓','銘翰','特異','煌瑋','登旺','光國','三廠','協光','晃成'];
 
 function escHtml(s){
@@ -351,8 +356,13 @@ loadList();
 // ════════════════ 異常單填寫邏輯 ════════════════
 function toYMD(dateDisplay){
   // 燒結明細表的日期顯示格式是 yyyy/MM/dd，轉成跟<input type=date>一樣的 yyyy-MM-dd 比對
-  const m = String(dateDisplay||'').match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
-  if(!m) return '';
+  const m = String(dateDisplay||'').match(/^\s*(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);  // 2026-10-08：要求年份在開頭，避免「Wed Oct 07 2026 15:00」被拆成2026-15-00
+  if(!m){
+    // 噴砂清洗後端回的是「Wed Oct 07 2026 15:00:00 GMT+0800」這種格式
+    const d = new Date(dateDisplay);
+    if(!dateDisplay || isNaN(d)) return '';
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
   return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
 }
 
@@ -360,19 +370,24 @@ let defectType = '';
 // ★ 2026-10-06新增：站別切換。進料：查詢改查進料檢驗(日期＋工單號)、顯示廠商欄、目前只開放外觀不良
 function isIQC(){ return document.getElementById('f_station').value === '進料'; }
 function isINJ(){ return document.getElementById('f_station').value === '射出'; }
+// ★ 2026-10-08新增：整形、噴砂清洗——查詢用日期＋工單號，外觀不良／尺寸NG都開放
+function isWoStation(){ return ['整形','噴砂清洗'].includes(document.getElementById('f_station').value); }
 function applyStation(){
   const iqc = isIQC(), inj = isINJ();
   const st = document.getElementById('f_station').value;
+  const rsh = st === '整形', bls = st === '噴砂清洗';
   document.getElementById('lookupLabel').textContent = iqc ? '查詢帶入進料檢驗資料（選填，方便帶入品名／工單號／廠商）'
-    : (inj ? '查詢帶入射出成形資料（選填，方便帶入品名／機台）' : '查詢帶入燒結資料（選填，方便帶入品名／工單號）');
-  document.getElementById('f_lookupFurnace').placeholder = iqc ? '工單號(可只打後幾碼)' : (inj ? '機台號' : '爐號');
+    : inj ? '查詢帶入射出成形資料（選填，方便帶入品名／機台）'
+    : (rsh || bls) ? '查詢帶入'+st+'資料（選填，方便帶入品名／工單號）' : '查詢帶入燒結資料（選填，方便帶入品名／工單號）';
+  document.getElementById('f_lookupFurnace').placeholder = (iqc || rsh || bls) ? '工單號(可只打後幾碼)' : (inj ? '機台號' : '爐號');
   document.getElementById('lookupHint').textContent = iqc
     ? '輸入日期＋工單號查詢進料檢驗紀錄，點選查詢結果可帶入下方欄位（僅供參考，仍可自行修改）。'
-    : (inj ? '輸入日期＋機台號查詢射出成形明細，點選查詢結果可帶入下方欄位（射出資料較多，查詢可能要數十秒）。'
-           : '輸入日期＋爐號查詢燒結明細表，點選查詢結果可帶入下方欄位（僅供參考，仍可自行修改）。');
+    : inj ? '輸入日期＋機台號查詢射出成形明細，點選查詢結果可帶入下方欄位（射出資料較多，查詢可能要數十秒）。'
+    : (rsh || bls) ? '輸入日期＋工單號查詢'+st+'紀錄，點選查詢結果可帶入下方欄位（僅供參考，仍可自行修改）。'
+    : '輸入日期＋爐號查詢燒結明細表，點選查詢結果可帶入下方欄位（僅供參考，仍可自行修改）。';
   document.getElementById('vendorBox').style.display = iqc ? '' : 'none';
-  document.getElementById('equipmentLabel').textContent = iqc ? '烘烤批／批號' : (inj ? '機台' : '爐號／機台代號');
-  document.getElementById('f_equipment').placeholder = iqc ? '例如：9/15-203' : (inj ? '例如：105' : '例如：205');
+  document.getElementById('equipmentLabel').textContent = iqc ? '烘烤批／批號' : (inj || rsh) ? '機台' : bls ? '處理方式' : '爐號／機台代號';
+  document.getElementById('f_equipment').placeholder = iqc ? '例如：9/15-203' : inj ? '例如：105' : rsh ? '例如：AF09' : bls ? '例如：噴砂' : '例如：205';
   const appearanceOnly = iqc || inj;
   const dimBtn = document.querySelector('#defectTypeRow .choice-btn[data-v="尺寸NG"]');
   dimBtn.disabled = appearanceOnly;
@@ -417,13 +432,14 @@ document.getElementById('btnLookup').addEventListener('click', async ()=>{
   const msgBox = document.getElementById('msgBox');
   msgBox.className = 'msg';
   if(!dateVal && !furnaceVal){
-    msgBox.className = 'msg err'; msgBox.textContent = isIQC() ? '請至少輸入日期或工單號其中一項再查詢' : (isINJ() ? '請至少輸入日期或機台號其中一項再查詢' : '請至少輸入日期或爐號其中一項再查詢');
+    msgBox.className = 'msg err'; msgBox.textContent = (isIQC() || isWoStation()) ? '請至少輸入日期或工單號其中一項再查詢' : (isINJ() ? '請至少輸入日期或機台號其中一項再查詢' : '請至少輸入日期或爐號其中一項再查詢');
     return;
   }
   resultsBox.innerHTML = '<div class="lookup-item">查詢中…</div>';
   resultsBox.classList.add('show');
   if(isIQC()){ await lookupIQC(dateVal, furnaceVal, resultsBox, msgBox); return; }
   if(isINJ()){ await lookupINJ(dateVal, furnaceVal, resultsBox, msgBox); return; }
+  if(isWoStation()){ await lookupWoStation(document.getElementById('f_station').value, dateVal, furnaceVal, resultsBox, msgBox); return; }
   try{
     const data = await fetchJsonRetry(SINTER_API_URL + '?action=getData');
     if(!data.ok){ resultsBox.innerHTML = '<div class="lookup-item">查詢失敗：'+escHtml(data.error)+'</div>'; return; }
@@ -479,6 +495,50 @@ async function lookupINJ(dateVal, machineVal, resultsBox, msgBox){
         if(r.remark && !document.getElementById('f_defectItems').value) document.getElementById('f_defectItems').value = r.remark;
         resultsBox.classList.remove('show');
         msgBox.className = 'msg ok'; msgBox.textContent = '已帶入「'+cleanName(r.partName)+'」的射出成形資料，請確認後繼續填寫。';
+      });
+    });
+  }catch(err){
+    resultsBox.innerHTML = '<div class="lookup-item">查詢發生錯誤：'+escHtml(err.message)+'</div>';
+  }
+}
+
+// ★ 2026-10-08新增：整形／噴砂清洗查詢(日期＋工單號，唯讀)
+//   整形欄位：date, wo, partName("Z 840R 219"), machine, qty("10pcs"為抽檢數), result, note
+//   噴砂欄位：date(Date字串), wo, partName, partNo, method(噴砂/清洗), qty(批量), sample, result, note
+async function lookupWoStation(st, dateVal, woVal, resultsBox, msgBox){
+  const rsh = st === '整形';
+  try{
+    const res = await fetch(rsh ? RESHAPE_API_URL : BLAST_API_URL, {
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'getData', payload:{action:'getData'}})
+    });
+    const data = await parseJsonOrBusy(res);
+    if(!data.ok){ resultsBox.innerHTML = '<div class="lookup-item">查詢失敗：'+escHtml(data.error)+'</div>'; return; }
+    let rows = data.data || [];
+    if(dateVal) rows = rows.filter(r => toYMD(r.date) === dateVal);
+    if(woVal) rows = rows.filter(r => String(r.wo||'').toUpperCase().includes(woVal.toUpperCase()));
+    rows = rows.slice().reverse();
+    if(rows.length === 0){
+      resultsBox.innerHTML = '<div class="lookup-item">查無符合的'+escHtml(st)+'紀錄，請直接手動填寫下方欄位</div>';
+      return;
+    }
+    const cleanName = s => String(s||'').replace(/\s+/g, ' ').trim();
+    resultsBox.innerHTML = rows.slice(0,15).map((r,i)=>
+      `<div class="lookup-item" data-i="${i}"><b>${escHtml(toYMD(r.date))} ${escHtml(r.wo)}</b>　${escHtml(cleanName(r.partName))}　${escHtml(rsh ? '機台'+(r.machine||'') : (r.method||''))}　判定:${escHtml(r.result)}</div>`
+    ).join('');
+    resultsBox.querySelectorAll('.lookup-item[data-i]').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const r = rows[Number(el.dataset.i)];
+        document.getElementById('f_date').value = toYMD(r.date) || '';
+        document.getElementById('f_equipment').value = (rsh ? r.machine : r.method) || '';
+        document.getElementById('f_workOrder').value = r.wo || '';
+        document.getElementById('f_model').value = cleanName(r.partName);
+        // 整形的 qty 是抽檢數(例如 10pcs)不是批量，只有噴砂清洗帶入批量
+        const m = String(r.qty||'').match(/^\s*(\d+)\s*$/);
+        if(!rsh && m){ document.getElementById('f_batchQty').value = m[1]; updateRateHint(); }
+        if(r.note && !document.getElementById('f_defectItems').value) document.getElementById('f_defectItems').value = String(r.note);
+        resultsBox.classList.remove('show');
+        msgBox.className = 'msg ok'; msgBox.textContent = '已帶入「'+cleanName(r.partName)+'」的'+st+'資料，請確認後繼續填寫。';
       });
     });
   }catch(err){
