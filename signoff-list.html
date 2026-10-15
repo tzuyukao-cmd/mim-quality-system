@@ -33,11 +33,11 @@
 <div class="wrap">
   <h1>📋 特採簽核總表</h1>
   <div class="toolbar">
-    <input type="text" id="filterText" placeholder="搜尋單號/爐號/模號/工單號/DRI/大主管...">
+    <input type="text" id="filterText" placeholder="搜尋單號/爐號/模號/工單號/DRI/J2廠主管...">
     <select id="filterStatus">
       <option value="">全部狀態</option>
       <option value="待DRI回應">待DRI回應</option>
-      <option value="待大主管核准">待大主管核准</option>
+      <option value="待J2廠主管核准">待J2廠主管核准</option>
       <option value="已完結">已完結</option>
     </select>
     <span class="count" id="countText"></span>
@@ -61,8 +61,8 @@
         <th data-k="releaseCondition">放行條件</th>
         <th data-k="reworkProcess">重工流程</th>
         <th>佐證檔案</th>
-        <th data-k="mgrName">大主管</th>
-        <th data-k="mgrChoice">大主管回應</th>
+        <th data-k="mgrName">J2廠主管</th>
+        <th data-k="mgrChoice">J2廠主管回應</th>
         <th>操作</th>
       </tr></thead>
       <tbody id="tbody"><tr><td colspan="19" class="loading">讀取中…</td></tr></tbody>
