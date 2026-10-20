@@ -165,12 +165,27 @@ function render(data){
 
 function renderReadonly(data){
   const isQA = data.defectType === '外觀不良';
-  const who = data.mgrName || (isQA ? data.qaMgrName : data.driName) || '';
-  const when = data.mgrTime || (isQA ? data.qaMgrTime : data.driTime) || '';
-  // ★ 2026-09-23修改：尺寸NG路徑核准後的結果不再一定是「特採放行」，
-  //   要依DRI原本判定(driChoice)顯示重工中/已報廢/特採放行；外觀不良路徑維持原樣。
-  const nonQaApprovedResult = data.driChoice === '重工' ? '重工中' : (data.driChoice === '報廢' ? '已報廢' : '特採放行');
-  const result = data.mgrChoice === '核准' ? (isQA ? '特採放行' : nonQaApprovedResult) : (isQA ? (data.qaEngChoice || '') : (data.driChoice || ''));
+  const obj = data.objection || {};
+  // ★ 2026-10-19改：結案可能由J2廠主管核准、第二關核准(知會結案)、或品保工程師退回上一站，
+  //   處理人/時間依實際結案的那一關顯示
+  let who, when;
+  if(obj.informed){
+    who = isQA ? data.qaMgrName : data.techReviewName;
+    when = isQA ? data.qaMgrTime : data.techReviewTime;
+  }else if(data.mgrChoice === '核准'){
+    who = data.mgrName; when = data.mgrTime;
+  }else if(isQA){
+    who = data.qaEngName; when = data.qaEngTime;
+  }else{
+    who = data.driName; when = data.driTime;
+  }
+  // ★ 2026-09-23修改：尺寸NG路徑結果依DRI原本判定(driChoice)顯示重工中/已報廢/特採放行
+  const nonQaResult = data.driChoice === '重工' ? '重工中' : (data.driChoice === '報廢' ? '已報廢' : '特採放行');
+  const result = data.status !== '已完結' ? '' : (isQA ? (data.qaEngChoice === '放行' ? '特採放行' : (data.qaEngChoice || '')) : nonQaResult);
+  let mgrLine = '';
+  if(obj.informed) mgrLine = `<br>J2廠主管：已知會，不需簽核（異議期限 ${escHtml(obj.deadline)}）`;
+  else if(data.mgrChoice === '核准') mgrLine = `<br>J2廠主管：核准`;
+  if(data.mgrChoice === '異議') mgrLine += `<br>J2廠主管曾提出異議：${escHtml(data.mgrRemark)}（${escHtml(data.mgrName)}，${escHtml(data.mgrTime)}）`;
   app.innerHTML = `
     <h1>特採簽核</h1>
     <div class="ticket-no">${escHtml(data.ticketNo)}</div>
@@ -189,19 +204,72 @@ function renderReadonly(data){
         ${data.techReviewName ? `<br>技術審查：${escHtml(data.techReviewName)}（${escHtml(data.techReviewChoice)}，${escHtml(data.techReviewTime)}）` : ''}
       `}
       ${data.respEvidenceUrl ? `<br>佐證檔案：${evidenceHtml(data.respEvidenceUrl)}` : ''}
-      ${data.mgrChoice ? `<br>J2廠主管：${escHtml(data.mgrChoice)}` : ''}
+      ${mgrLine}
     </div>
+    ${obj.eligible ? renderObjectionBox(data, isQA) : ''}
   `;
+  if(obj.eligible) bindObjection(data);
+}
+
+// ★ 2026-10-19新增：知會結案後，J2廠主管3個工作天內可提出異議(理由必填)，
+//   送出前在頁面上再確認一次(viewer不支援confirm())
+function renderObjectionBox(data, isQA){
+  return `
+    <div id="objWrap" style="margin-top:18px;border-top:1px solid #eee;padding-top:14px;">
+      <button type="button" class="choice-btn" id="objOpen" style="width:100%;">J2廠主管提出異議</button>
+      <div id="objForm" hidden>
+        <div class="readonly-box" style="margin-top:10px;">提出異議後，此單會重新開啟並退回<b>${isQA ? '品保工程師' : 'DRI'}</b>重新處理，明細表判定改回「不合格」。期限：<b>${escHtml(data.objection.deadline)}</b></div>
+        <label>J2廠主管姓名</label>
+        <input type="text" id="o_name" placeholder="請輸入姓名(須與人員對照表一致)">
+        <label>密碼</label>
+        <input type="password" id="o_password" placeholder="個人密碼(初始為工號)">
+        <label>⚠️ 異議理由(必填)</label>
+        <textarea id="o_remark" placeholder="請說明不同意的原因與希望的處置"></textarea>
+        <button class="submit-btn" id="objSubmit" style="background:#c0392b;">確認提出異議</button>
+        <div class="msg" id="objMsg"></div>
+      </div>
+    </div>`;
+}
+function bindObjection(data){
+  document.getElementById('objOpen').onclick = ()=>{
+    document.getElementById('objForm').hidden = false;
+    document.getElementById('objOpen').hidden = true;
+  };
+  document.getElementById('objSubmit').onclick = async ()=>{
+    const name = document.getElementById('o_name').value.trim();
+    const password = document.getElementById('o_password').value;
+    const remark = document.getElementById('o_remark').value.trim();
+    const msgBox = document.getElementById('objMsg');
+    msgBox.className = 'msg';
+    if(!name || !password){ msgBox.className='msg err'; msgBox.textContent='請輸入姓名和密碼'; return; }
+    if(!remark){ msgBox.className='msg err'; msgBox.textContent='請填寫異議理由'; return; }
+    document.getElementById('objSubmit').disabled = true;
+    try{
+      const res = await apiPost('managerObject', {ticketNo: data.ticketNo, name, password, remark});
+      if(res.ok){
+        msgBox.className='msg ok'; msgBox.textContent='已提出異議，此單已重新開啟。';
+        setTimeout(()=>init(), 1500);
+      }else{
+        msgBox.className='msg err'; msgBox.textContent=res.error;
+        document.getElementById('objSubmit').disabled = false;
+      }
+    }catch(err){
+      msgBox.className='msg err'; msgBox.textContent=(err.friendly ? err.message : '連線失敗：'+err.message);
+      document.getElementById('objSubmit').disabled = false;
+    }
+  };
 }
 
 function renderDriForm(data){
   // ★ 2026-09-23補上：data.driChoice有值代表這是技術審查或J2廠主管駁回後的重新回應
   // (前一次回應內容還留著，只是狀態被退回)，這次只能選重工/報廢，不能再選放行重送。
-  const isRetryAfterReject = !!data.driChoice;
+  // ★ 2026-10-19：J2廠主管對知會結案(重工/報廢)提出異議而重新開啟時，三個選項都可以選
+  const isRetryAfterReject = !!data.driChoice && !data.objectionPending;
   app.innerHTML = `
     <h1>特採簽核 - DRI判定</h1>
     <div class="ticket-no">${escHtml(data.ticketNo)}</div>
     ${renderFactsTable(data.ticket, data.defectItems, data.evidenceUrl)}
+    ${data.objectionPending ? `<div class="msg err" style="display:block;">J2廠主管 ${escHtml(data.mgrName)} 於 ${escHtml(data.mgrTime)} 提出異議：${escHtml(data.mgrRemark)}<br>先前判定：${escHtml(data.driChoice)}，請重新判定。</div>` : ''}
     ${isRetryAfterReject ? `<div class="msg err" style="display:block;">此單先前放行後被駁回，這次只能選擇重工或報廢。</div>` : ''}
     <label>回應人姓名</label>
     <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
@@ -456,7 +524,8 @@ function renderQAEngineerForm(data){
     <h1>特採簽核 - 品保工程師判定(外觀不良)</h1>
     <div class="ticket-no">${escHtml(data.ticketNo)}</div>
     ${renderFactsTable(data.ticket, data.defectItems, data.evidenceUrl)}
-    ${isRetryAfterReject ? `<div class="msg err" style="display:block;">此單先前放行後被駁回，這次只能選擇${backChoice}。</div>` : ''}
+    ${data.objectionPending ? `<div class="msg err" style="display:block;">J2廠主管 ${escHtml(data.mgrName)} 於 ${escHtml(data.mgrTime)} 對特採放行提出異議：${escHtml(data.mgrRemark)}<br>這次只能選擇${backChoice}。</div>`
+      : (isRetryAfterReject ? `<div class="msg err" style="display:block;">此單先前放行後被駁回，這次只能選擇${backChoice}。</div>` : '')}
     <label>回應人姓名</label>
     <input type="text" id="f_name" placeholder="請輸入姓名(須與人員對照表一致)">
     <label>密碼</label>
