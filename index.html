@@ -344,7 +344,7 @@ panelsContainer.appendChild(gaugePanel);
 /* IQC專屬頁籤 */
 const iqcBtn = document.createElement('button');
 iqcBtn.className = 'tab-btn';
-iqcBtn.innerHTML = '進料檢驗(IQC)<br><span style="font-size:10px;font-weight:400;opacity:.8;">Kiểm tra NL (IQC)</span>';
+iqcBtn.innerHTML = '進料檢驗(IQC)<br><span style="font-size:10px;font-weight:400;opacity:.8;">Kiểm tra đầu vào (IQC)</span>';
 iqcBtn.id = 'tabbtn-iqc';
 iqcBtn.onclick = ()=>switchTab('iqc');
 tabsBar.appendChild(iqcBtn);
@@ -1537,8 +1537,8 @@ function iqcRender(){
 
   const formHTML = `
     <div class="card">
-      <h2 style="margin:0 0 4px;">📥 進料檢驗明細表(IQC)<span class="vi">Bảng chi tiết kiểm tra nguyên liệu đầu vào (IQC)</span></h2>
-      <div class="sub" style="margin-bottom:12px;">${editing?'編輯第 '+(iqcState.editIndex+1)+' 筆紀錄':'新增進料檢驗紀錄'}<span class="vi">${editing?'Sửa hồ sơ thứ '+(iqcState.editIndex+1):'Thêm mới hồ sơ kiểm tra nguyên liệu'}</span></div>
+      <h2 style="margin:0 0 4px;">📥 進料檢驗明細表(IQC)<span class="vi">Bảng chi tiết kiểm tra đầu vào (IQC)</span></h2>
+      <div class="sub" style="margin-bottom:12px;">${editing?'編輯第 '+(iqcState.editIndex+1)+' 筆紀錄':'新增進料檢驗紀錄'}<span class="vi">${editing?'Sửa hồ sơ thứ '+(iqcState.editIndex+1):'Thêm mới hồ sơ kiểm tra đầu vào'}</span></div>
       <div class="grid">
         <div><label>工單號 *<span class="vi">Số lệnh sản xuất</span></label><input id="iqc_wo" value="${editing?(rec.wo||''):iqcState.draft.wo}" oninput="iqcDraftUpdate('wo',this.value)" placeholder="如: JC31-260600184"></div>
         <div><label>出爐日期<span class="vi">Ngày ra lò</span></label><input id="iqc_bake" value="${editing?(rec.bake||''):iqcState.draft.bake}" oninput="iqcDraftUpdate('bake',this.value)" placeholder="如: 6/8"></div>
@@ -1548,17 +1548,17 @@ function iqcRender(){
             ${IQC_VENDOR_OPTIONS.map(v=>`<option value="${v}" ${(editing?rec.vendor:iqcState.draft.vendor)===v?'selected':''}>${v}</option>`).join('')}
           </select>
         </div>
-        <div><label>品名</label><input id="iqc_partName" value="${editing?(rec.partName||''):iqcState.draft.partName}" oninput="iqcDraftUpdate('partName',this.value)" placeholder="如: MIM零件名稱"></div>
-        <div><label>抽樣數/批量<span class="vi">Số lượng mẫu / Lô</span></label><input id="iqc_sample" value="${editing?(rec.sample||''):iqcState.draft.sample}" oninput="iqcDraftUpdate('sample',this.value)" placeholder="如: 2931/200"></div>
+        <div><label>品名<span class="vi">Tên sản phẩm</span></label><input id="iqc_partName" value="${editing?(rec.partName||''):iqcState.draft.partName}" oninput="iqcDraftUpdate('partName',this.value)" placeholder="如: MIM零件名稱"></div>
+        <div><label>抽樣數/批量<span class="vi">SL mẫu / SL lô</span></label><input id="iqc_sample" value="${editing?(rec.sample||''):iqcState.draft.sample}" oninput="iqcDraftUpdate('sample',this.value)" placeholder="如: 2931/200"></div>
         <div><label>檢驗員<span class="vi">Người kiểm tra</span></label><input id="iqc_inspector" value="${editing?(rec.inspector||''):iqcState.draft.inspector}" oninput="iqcDraftUpdate('inspector',this.value)" placeholder="如: 陳柔羽"></div>
         <div><label>核准<span class="vi">Người phê duyệt</span></label><input id="iqc_approver" value="${editing?(rec.approver||''):iqcState.draft.approver}" oninput="iqcDraftUpdate('approver',this.value)" placeholder="如: 高子淯"></div>
       </div>
       <label>確認項目<span class="vi">Mục xác nhận</span></label>
       <div class="iqc-check-row">
         <div class="iqc-check-toggle ${(editing?rec.app:iqcState.check.app)?'active':''}" onclick="iqcToggleCheck('app')" id="iqc_chk_app">外觀<span class="vi">Ngoại quan</span></div>
-        <div class="iqc-check-toggle ${(editing?rec.jig:iqcState.check.jig)?'active':''}" onclick="iqcToggleCheck('jig')" id="iqc_chk_jig">檢具<span class="vi">Dụng cụ kiểm tra</span></div>
+        <div class="iqc-check-toggle ${(editing?rec.jig:iqcState.check.jig)?'active':''}" onclick="iqcToggleCheck('jig')" id="iqc_chk_jig">檢具<span class="vi">Đồ gá kiểm tra</span></div>
         <div class="iqc-check-toggle ${(editing?rec.adh:iqcState.check.adh)?'active':''}" onclick="iqcToggleCheck('adh')" id="iqc_chk_adh">附著力<span class="vi">Độ bám dính</span></div>
-        <div class="iqc-check-toggle ${(editing?rec.tap:iqcState.check.tap)?'active':''}" onclick="iqcToggleCheck('tap')" id="iqc_chk_tap">攻牙<span class="vi">Cắt ren</span></div>
+        <div class="iqc-check-toggle ${(editing?rec.tap:iqcState.check.tap)?'active':''}" onclick="iqcToggleCheck('tap')" id="iqc_chk_tap">攻牙<span class="vi">Taro ren</span></div>
       </div>
       <div class="grid">
         <div class="full"><label>異常描述<span class="vi">Mô tả bất thường</span></label><input id="iqc_desc" value="${editing?(rec.desc||''):iqcState.draft.desc}" oninput="iqcDraftUpdate('desc',this.value)" placeholder="如有異常請填寫說明"></div>
@@ -1567,7 +1567,7 @@ function iqcRender(){
       <div class="iqc-verdict-row">
         <button type="button" class="iqc-verdict-btn ${ (editing?rec.verdict:iqcState.verdict)==='OK'?'sel-ok':''}" onclick="iqcSetVerdict('OK')">OK</button>
         <button type="button" class="iqc-verdict-btn ${ (editing?rec.verdict:iqcState.verdict)==='NG'?'sel-ng':''}" onclick="iqcSetVerdict('NG')">NG</button>
-        <button type="button" class="iqc-verdict-btn ${ (editing?rec.verdict:iqcState.verdict)==='特採'?'sel-sp':''}" onclick="iqcSetVerdict('特採')">特採</button>
+        <button type="button" class="iqc-verdict-btn ${ (editing?rec.verdict:iqcState.verdict)==='特採'?'sel-sp':''}" onclick="iqcSetVerdict('特採')">特採<span class="vi">Chấp nhận đặc biệt</span></button>
       </div>
       <div class="grid">
         <div class="full"><label>備註<span class="vi">Ghi chú</span></label><input id="iqc_remark" value="${editing?(rec.remark||''):iqcState.draft.remark}" oninput="iqcDraftUpdate('remark',this.value)" placeholder="其他備註"></div>
@@ -1631,7 +1631,7 @@ function iqcRender(){
     ${formHTML}
     <div class="card">
       <div class="toprow">
-        <h2 style="margin:0;">進料檢驗明細清單<span class="vi">Danh sách chi tiết kiểm tra nguyên liệu</span></h2>
+        <h2 style="margin:0;">進料檢驗明細清單<span class="vi">Danh sách chi tiết kiểm tra đầu vào</span></h2>
         <button class="btn-ghost" onclick="iqcInit()">🔄 重新讀取雲端 / Tải lại từ Cloud</button>
       </div>
       <div class="gauge-filter-row" style="margin-bottom:8px;">
@@ -1640,7 +1640,7 @@ function iqcRender(){
       </div>
       <div class="small" style="color:#888;margin-bottom:12px;">選日期後按下匯入，會自動掃描整形銘翰站資料夾，把該天所有品項(P885 L/R等)建立成進料檢驗紀錄（已存在的工單號不會重複匯入；判定依表單內有無NG自動判斷）</div>
       <div class="gauge-filter-row">
-        <input id="iqc_filterText" placeholder="🔍 搜尋工單號／廠商／品名／出爐日期／備註... / Tìm số lệnh／NCC／ghi chú" value="${iqcState.filterText}" oninput="iqcSetFilter('filterText',this.value,event)" oncompositionend="iqcSetFilter('filterText',this.value)">
+        <input id="iqc_filterText" placeholder="🔍 搜尋工單號／廠商／品名／出爐日期／備註... / Tìm số lệnh／NCC／tên SP／ngày ra lò／ghi chú" value="${iqcState.filterText}" oninput="iqcSetFilter('filterText',this.value,event)" oncompositionend="iqcSetFilter('filterText',this.value)">
         <select onchange="iqcSetFilter('filterVerdict',this.value)">
           <option value="all" ${iqcState.filterVerdict==='all'?'selected':''}>全部 / Tất cả</option>
           <option value="OK" ${iqcState.filterVerdict==='OK'?'selected':''}>僅看 OK</option>
@@ -1661,15 +1661,15 @@ function iqcRender(){
         <table>
           <thead><tr>
             <th>日期<span class="vi">Ngày</span></th>
-            <th>品名</th>
+            <th>品名<span class="vi">Tên SP</span></th>
             <th>工單號<span class="vi">Số lệnh</span></th>
             <th>出爐日期<span class="vi">Ngày ra lò</span></th>
             <th>廠商<span class="vi">NCC</span></th>
-            <th>抽樣數/批量<span class="vi">Mẫu/Lô</span></th>
+            <th>抽樣數/批量<span class="vi">SL mẫu/SL lô</span></th>
             <th>外觀<span class="vi">Ngoại quan</span></th>
-            <th>檢具<span class="vi">Dụng cụ</span></th>
+            <th>檢具<span class="vi">Đồ gá</span></th>
             <th>附著力<span class="vi">Bám dính</span></th>
-            <th>攻牙<span class="vi">Cắt ren</span></th>
+            <th>攻牙<span class="vi">Taro ren</span></th>
             <th>異常描述<span class="vi">Mô tả lỗi</span></th>
             <th>判定<span class="vi">Kết quả</span></th>
             <th>檢驗員<span class="vi">Người KT</span></th>
