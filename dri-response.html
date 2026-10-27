@@ -38,6 +38,8 @@
 <script>
 // ★ 部署dri_response_backend.gs後，把Web App網址貼在這裡
 const API_URL = 'https://script.google.com/macros/s/AKfycbxWZB8U3HaU7m9TZsQ85PzRCvFJf8zIt3dd8WppQdu6XuPLwcKku-bCIzbE4v7qVP3Z/exec';
+// ★ 2026-10-20新增：已完結的異常單可一鍵轉開CAPA(capa.html會帶入站別/品名/工單/不良項目，同一張單不能重複開)
+const CAPA_FORM_BASE_URL = 'https://tzuyukao-cmd.github.io/mim-quality-system/capa.html';
 
 const params = new URLSearchParams(location.search);
 const ticketNo = params.get('ticket');
@@ -207,6 +209,8 @@ function renderReadonly(data){
       ${mgrLine}
     </div>
     ${obj.eligible ? renderObjectionBox(data, isQA) : ''}
+    ${data.status === '已完結' ? `<a class="submit-btn" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box;background:#1d4e89;"
+      href="${CAPA_FORM_BASE_URL}?tab=form&from=${encodeURIComponent(data.ticketNo)}" target="_blank">🛠 針對此異常開立 CAPA(8D)</a>` : ''}
   `;
   if(obj.eligible) bindObjection(data);
 }
