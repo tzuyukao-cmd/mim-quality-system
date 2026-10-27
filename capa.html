@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAPA管理 - MIM品質系統</title>
+<style>
+  body{font-family:"Microsoft JhengHei",sans-serif;background:#f4f5f7;margin:0;padding:20px;color:#222;}
+  .hub-tabs{display:flex;gap:8px;max-width:1400px;margin:0 auto 14px;flex-wrap:wrap;}
+  .hub-tab-btn{padding:9px 18px;border:1.5px solid #ccc;border-radius:8px 8px 0 0;background:#e9ebee;
+    color:#555;font-size:14px;font-weight:700;cursor:pointer;border-bottom:none;}
+  .hub-tab-btn.active{background:#fff;color:#2563eb;border-color:#2563eb;}
+  .hub-tab-btn[hidden]{display:none;}
+  .hub-panel{display:none;}
+  .hub-panel.active{display:block;}
+
+  /* ===== 總表 ===== */
+  .wrap{max-width:1400px;margin:0 auto;}
+  h1{font-size:20px;margin:0 0 12px;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px;}
+  .kpi{background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:12px 14px;cursor:pointer;border:1.5px solid transparent;}
+  .kpi:hover{border-color:#bfd3fb;}
+  .kpi .n{font-size:26px;font-weight:700;}
+  .kpi .t{font-size:13px;color:#666;}
+  .kpi.red .n{color:#c0392b;}
+  .kpi.orange .n{color:#a15c00;}
+  .kpi.green .n{color:#1e7e34;}
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+  .toolbar input,.toolbar select{padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;}
+  .toolbar input{flex:1;min-width:200px;}
+  .tool-btn{padding:7px 14px;border:1px solid #2563eb;background:#fff;color:#2563eb;border-radius:6px;font-size:13.5px;font-weight:700;cursor:pointer;}
+  .tool-btn:hover{background:#eff6ff;}
+  .count{color:#666;font-size:13px;}
+  .table-wrap{background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:auto;max-height:70vh;}
+  table.list{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap;}
+  table.list th,table.list td{border:1px solid #e3e5e8;padding:7px 10px;text-align:left;}
+  table.list th{background:#f0f1f3;position:sticky;top:0;cursor:pointer;user-select:none;font-weight:700;}
+  table.list th:hover{background:#e4e6ea;}
+  table.list th.sorted::after{content:' ▾';}
+  table.list th.sorted.asc::after{content:' ▴';}
+  table.list tr:nth-child(even){background:#fafbfc;}
+  table.list tr:hover{background:#eef4ff;}
+  .title-cell{max-width:280px;overflow:hidden;text-overflow:ellipsis;}
+  .pill{padding:2px 8px;border-radius:12px;font-size:12px;font-weight:700;display:inline-block;}
+  .pill.wait{background:#fff4e0;color:#a15c00;}
+  .pill.done{background:#e6f6ec;color:#1e7e34;}
+  .pill.cancel{background:#eceff1;color:#78858f;}
+  .pill.late{background:#fdecea;color:#c0392b;margin-left:4px;}
+  .pill.sev-高{background:#fdecea;color:#c0392b;}
+  .pill.sev-中{background:#fff4e0;color:#a15c00;}
+  .pill.sev-低{background:#eef4ff;color:#2563eb;}
+  .link-btn{color:#2563eb;text-decoration:none;font-weight:700;cursor:pointer;background:none;border:none;font-size:13px;padding:0;font-family:inherit;}
+  .link-btn:hover{text-decoration:underline;}
+  .loading{padding:30px;text-align:center;color:#888;}
+
+  /* ===== 表單共用 ===== */
+  .card{max-width:760px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:24px;}
+  .card h2{font-size:18px;margin:0 0 4px;}
+  .sub2{font-size:13px;color:#888;margin-bottom:12px;}
+  label{display:block;font-size:13px;color:#555;margin:14px 0 4px;font-weight:600;}
+  select,input[type=text],input[type=date],input[type=number],input[type=password],textarea{
+    width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px;font-family:inherit;}
+  textarea{min-height:64px;resize:vertical;}
+  .toolbar select{width:auto;}
+  .toolbar input[type=text]{width:auto;flex:1;min-width:200px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;}
+  @media (max-width:640px){ .grid2{grid-template-columns:1fr;} body{padding:12px;} .card{padding:16px;} }
+  .choice-row{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;}
+  .choice-btn{flex:1;min-width:110px;padding:10px;border:1.5px solid #ccc;border-radius:6px;background:#fff;cursor:pointer;font-weight:700;font-size:14px;font-family:inherit;}
+  .choice-btn.sel{border-color:#2563eb;background:#eff6ff;color:#2563eb;}
+  .req{color:#c0392b;}
+  .hint{font-size:12px;color:#999;margin-top:4px;}
+  .lookup-row{display:flex;gap:8px;align-items:flex-end;}
+  .lookup-row>div{flex:1;}
+  .submit-btn{margin-top:20px;width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;}
+  .submit-btn:disabled{background:#aaa;cursor:not-allowed;}
+  .submit-btn.secondary{background:#fff;color:#2563eb;border:1.5px solid #2563eb;}
+  .submit-btn.danger{background:#c0392b;}
+  .btn-row{display:flex;gap:10px;}
+  .btn-row .submit-btn{flex:1;}
+  .msg{margin-top:12px;padding:10px;border-radius:6px;font-size:13px;display:none;white-space:pre-wrap;}
+  .msg.err{background:#fdecea;color:#c0392b;display:block;}
+  .msg.ok{background:#e6f6ec;color:#1e7e34;display:block;}
+  .msg.warn{background:#fff4e0;color:#a15c00;display:block;}
+  .msg a{color:inherit;font-weight:700;}
+  .auth-box{margin-top:18px;padding:14px;background:#f8f9fa;border-radius:8px;}
+  .auth-box label:first-child{margin-top:0;}
+
+  /* ===== 明細 ===== */
+  .detail{max-width:980px;margin:0 auto;}
+  .d-head{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:20px 24px;margin-bottom:12px;}
+  .d-no{font-family:monospace;font-size:15px;color:#555;}
+  .d-title{font-size:20px;font-weight:700;margin:4px 0 10px;}
+  .stepper{display:flex;gap:0;margin:14px 0 4px;flex-wrap:wrap;}
+  .step{flex:1;min-width:100px;text-align:center;font-size:12.5px;color:#999;position:relative;padding-top:22px;}
+  .step::before{content:'';position:absolute;top:6px;left:50%;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#d6d9de;z-index:1;}
+  .step::after{content:'';position:absolute;top:11px;left:-50%;width:100%;height:2px;background:#d6d9de;}
+  .step:first-child::after{display:none;}
+  .step.done{color:#1e7e34;}
+  .step.done::before,.step.done::after{background:#1e7e34;}
+  .step.cur{color:#2563eb;font-weight:700;}
+  .step.cur::before{background:#2563eb;box-shadow:0 0 0 4px #dbe7fe;}
+  .step.cur::after{background:#1e7e34;}
+  .facts{width:100%;border-collapse:collapse;font-size:14px;}
+  .facts td{padding:6px 4px;border-bottom:1px solid #eee;vertical-align:top;}
+  .facts td.k{color:#888;width:96px;white-space:nowrap;}
+  .facts-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;}
+  @media (max-width:640px){ .facts-grid{grid-template-columns:1fr;} }
+  .sec{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:18px 24px;margin-bottom:12px;}
+  .sec h3{font-size:15.5px;margin:0 0 8px;color:#1d4e89;display:flex;align-items:center;gap:8px;}
+  .sec h3 .d{display:inline-block;background:#1d4e89;color:#fff;border-radius:5px;padding:1px 7px;font-size:12.5px;}
+  .sec .body{font-size:14px;line-height:1.7;white-space:pre-wrap;}
+  .sec .body.empty{color:#aaa;}
+  .sec .sub-k{font-size:13px;color:#888;margin-top:8px;}
+  .why-list{margin:4px 0 0;padding-left:22px;font-size:14px;line-height:1.7;}
+  table.act{border-collapse:collapse;width:100%;font-size:13px;margin-top:6px;}
+  table.act th,table.act td{border:1px solid #e3e5e8;padding:6px 8px;text-align:left;vertical-align:top;}
+  table.act th{background:#f0f1f3;font-weight:700;white-space:nowrap;}
+  table.act input,table.act select{padding:5px 6px;font-size:13px;}
+  table.act td.del{width:30px;text-align:center;}
+  .del-btn{border:none;background:none;color:#c0392b;font-size:16px;cursor:pointer;}
+  .add-btn{margin-top:8px;padding:6px 12px;border:1px dashed #2563eb;background:#fff;color:#2563eb;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
+  .chk-row{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:6px;font-size:14px;}
+  .chk-row label{display:flex;align-items:center;gap:5px;margin:0;font-weight:400;color:#222;}
+  .chk-row input{width:auto;}
+  .ev-list{margin:6px 0 0;padding-left:20px;font-size:13.5px;line-height:1.8;}
+  .ev-list a{color:#2563eb;}
+  .ev-list .meta{color:#999;font-size:12px;}
+  .hist{font-size:13px;}
+  .hist td{padding:5px 6px;border-bottom:1px solid #f0f0f0;vertical-align:top;}
+  .hist td:first-child{color:#888;white-space:nowrap;width:120px;}
+  .action-panel{border:2px solid #2563eb;}
+  .action-panel h3{color:#2563eb;}
+  .return-note{background:#fdecea;color:#c0392b;border-radius:6px;padding:10px 12px;font-size:13.5px;margin-bottom:10px;white-space:pre-wrap;}
+  .d-tools{display:flex;gap:10px;justify-content:flex-end;margin-bottom:10px;flex-wrap:wrap;}
+  .print-only{display:none;}
+
+  @media print{
+    body{background:#fff;padding:0;}
+    .hub-tabs,.no-print,.action-panel,.d-tools{display:none !important;}
+    .hub-panel{display:none !important;}
+    #tab-detail{display:block !important;}
+    .sec,.d-head{box-shadow:none;border:1px solid #ccc;break-inside:avoid;}
+    .print-only{display:block;}
+  }
+</style>
+</head>
+<body>
+
+<div class="hub-tabs">
+  <button type="button" class="hub-tab-btn active" data-tab="list">📋 CAPA總表</button>
+  <button type="button" class="hub-tab-btn" data-tab="form">📝 開立CAPA</button>
+  <button type="button" class="hub-tab-btn" data-tab="detail" id="detailTabBtn" hidden>📄 CAPA明細</button>
+</div>
+
+<!-- ════════════════ 分頁一：CAPA總表 ════════════════ -->
+<div class="hub-panel active" id="tab-list">
+  <div class="wrap">
+    <h1>📋 CAPA 總表</h1>
+    <div class="kpis" id="kpis"></div>
+    <div class="toolbar">
+      <input type="text" id="filterText" placeholder="搜尋單號/主旨/品名/負責人/來源單號/客戶...">
+      <select id="filterStatus">
+        <option value="">全部狀態</option>
+        <option value="__open">進行中(全部)</option>
+        <option value="待責任單位回覆">待責任單位回覆</option>
+        <option value="待品保審查">待品保審查</option>
+        <option value="待成效驗證">待成效驗證</option>
+        <option value="待結案核准">待結案核准</option>
+        <option value="__late">逾期／驗證到期</option>
+        <option value="已結案">已結案</option>
+        <option value="已取消">已取消</option>
+      </select>
+      <select id="filterSource">
+        <option value="">全部來源</option>
+        <option>特採異常單</option><option>客訴</option><option>內部稽核</option><option>手動</option>
+      </select>
+      <button type="button" class="tool-btn" id="btnReload">🔄 重新整理</button>
+      <button type="button" class="tool-btn" id="btnCsv">⬇ 匯出CSV</button>
+      <span class="count" id="countText"></span>
+    </div>
+    <div class="table-wrap">
+      <table class="list">
+        <thead><tr>
+          <th data-k="capaNo">CAPA單號</th>
+          <th data-k="status">狀態</th>
+          <th data-k="severity">嚴重度</th>
+          <th data-k="source">來源</th>
+          <th data-k="sourceRef">來源單號</th>
+          <th data-k="title">主旨</th>
+          <th data-k="model">品名</th>
+          <th data-k="station">站別</th>
+          <th data-k="ownerName">負責人</th>
+          <th data-k="actionsDone">對策進度</th>
+          <th data-k="openTime">開立時間</th>
+          <th data-k="replyDue">回覆期限</th>
+          <th data-k="verifyDue">驗證期限</th>
+          <th data-k="closeTime">結案時間</th>
+          <th>操作</th>
+        </tr></thead>
+        <tbody id="tbody"><tr><td colspan="15" class="loading">讀取中…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ 分頁二：開立CAPA ════════════════ -->
+<div class="hub-panel" id="tab-form">
+  <div class="card">
+    <h2>📝 開立 CAPA（8D）</h2>
+    <div class="sub2">品保開單(D1指派負責人＋初步問題描述)，送出後會通知負責人填寫 D2~D7。</div>
+
+    <label>開單來源 <span class="req">*</span></label>
+    <div class="choice-row" id="sourceRow">
+      <button type="button" class="choice-btn" data-v="特採異常單">特採異常單</button>
+      <button type="button" class="choice-btn" data-v="客訴">客訴</button>
+      <button type="button" class="choice-btn" data-v="內部稽核">內部稽核</button>
+      <button type="button" class="choice-btn" data-v="手動">手動新開</button>
+    </div>
+
+    <div id="ticketBox" hidden>
+      <label>特採異常單號 <span class="req">*</span></label>
+      <div class="lookup-row">
+        <div><input type="text" id="f_ticketNo" placeholder="例如：MIM-SIN-20261015-001"></div>
+        <button type="button" class="tool-btn" id="btnTicket" style="padding:8px 14px;">🔍 帶入</button>
+      </div>
+      <div class="hint">帶入異常單的站別、品名、工單、不良項目，帶入後仍可修改。</div>
+      <div class="msg" id="ticketMsg"></div>
+    </div>
+
+    <div id="refBox" hidden>
+      <div class="grid2">
+        <div id="customerWrap" hidden>
+          <label>客戶 <span class="req">*</span></label>
+          <input type="text" id="f_customer" placeholder="例如：Apple">
+        </div>
+        <div>
+          <label id="refLabel">來源單號</label>
+          <input type="text" id="f_sourceRef">
+        </div>
+      </div>
+    </div>
+
+    <label>主旨 <span class="req">*</span></label>
+    <input type="text" id="f_title" placeholder="一句話描述問題，例如：P885 B基準孔NOGO 連續兩爐超規">
+
+    <div class="grid2">
+      <div>
+        <label>站別</label>
+        <select id="f_station">
+          <option value="">(未指定)</option>
+          <option>進料</option><option>射出</option><option>脫脂</option><option>燒結</option>
+          <option>整形</option><option>噴砂清洗</option><option>電鍍</option><option>外觀檢驗</option>
+          <option>FQC/出貨</option><option>其他</option>
+        </select>
+      </div>
+      <div>
+        <label>品名 <span class="req">*</span></label>
+        <input type="text" id="f_model" placeholder="例如：P885 MOUNT A L">
+      </div>
+      <div>
+        <label>工單號</label>
+        <input type="text" id="f_workOrder">
+      </div>
+      <div class="grid2" style="gap:0 10px;">
+        <div><label>批量</label><input type="number" id="f_lotQty" min="0"></div>
+        <div><label>不良數</label><input type="number" id="f_defectQty" min="0"></div>
+      </div>
+    </div>
+
+    <label>嚴重度 <span class="req">*</span></label>
+    <div class="choice-row" id="sevRow">
+      <button type="button" class="choice-btn" data-v="高">高(客訴/安全/批量流出)</button>
+      <button type="button" class="choice-btn" data-v="中">中(製程異常/重複發生)</button>
+      <button type="button" class="choice-btn" data-v="低">低(單次輕微)</button>
+    </div>
+
+    <label>D2 初步問題描述 <span class="req">*</span></label>
+    <textarea id="f_d2" style="min-height:110px;" placeholder="建議依 5W2H：何時(When)、何處(Where)、何物(What)、何人發現(Who)、為何是問題(Why)、如何發現(How)、數量多少(How many)"></textarea>
+
+    <div class="grid2">
+      <div>
+        <label>D1 負責人 <span class="req">*</span></label>
+        <input type="text" id="f_owner" list="peopleList" placeholder="從人員對照表選擇">
+        <datalist id="peopleList"></datalist>
+        <div class="hint">負責人須在人員對照表(用同一組姓名/密碼登入回覆)。</div>
+      </div>
+      <div>
+        <label>回覆期限 <span class="req">*</span></label>
+        <input type="date" id="f_replyDue">
+        <div class="hint">依嚴重度預設：高 3 天、中 7 天、低 14 天，可修改。</div>
+      </div>
+    </div>
+    <label>D1 小組成員</label>
+    <input type="text" id="f_team" placeholder="例如：製造課 王OO、工程課 李OO、品保 陳OO">
+
+    <label>附件（選填，可多選，每個檔案 10MB 以內）</label>
+    <input type="file" id="f_files" multiple>
+
+    <div class="auth-box">
+      <div class="grid2">
+        <div><label>開單人姓名 <span class="req">*</span></label><input type="text" id="f_name" placeholder="品保工程師/品保主管"></div>
+        <div><label>密碼 <span class="req">*</span></label><input type="password" id="f_pw" placeholder="同特採簽核密碼"></div>
+      </div>
+    </div>
+
+    <button class="submit-btn" id="btnCreate">送出，開立 CAPA</button>
+    <div class="msg" id="createMsg"></div>
+  </div>
+</div>
+
+<!-- ════════════════ 分頁三：CAPA明細 ════════════════ -->
+<div class="hub-panel" id="tab-detail">
+  <div class="detail" id="detail"><div class="loading">讀取中…</div></div>
+</div>
+
+<script>
+// ★ 部署 capa_backend.gs 後，把 Web App 網址貼在這裡
+const API_URL = 'https://script.google.com/macros/s/AKfycbzc3G2427wYDh4ZMyZh_taEQhuRWlMdoQ1xqN8fOcqph0cRlzwP1Sl-LxeoKX4L5Ck6/exec';
+const DRI_FORM_BASE_URL = 'https://tzuyukao-cmd.github.io/mim-quality-system/dri-response.html';
+const STEPS = ['開立', '待責任單位回覆', '待品保審查', '待成效驗證', '待結案核准', '已結案'];
+const STEP_LABEL = { '開立':'D1 開立', '待責任單位回覆':'D2~D7 責任單位回覆', '待品保審查':'品保審查', '待成效驗證':'成效驗證', '待結案核准':'結案核准', '已結案':'D8 結案' };
+const STD_DOCS = ['SOP/作業標準書', 'PFMEA', '控制計畫', 'QC工程圖', '檢驗規範/檢驗基準', '治具/防呆', '教育訓練', '其他'];
+const SEV_DAYS = { '高':3, '中':7, '低':14 };
+const MAX_FILE_MB = 10;
+
+// ---- 共用 ----
+function escHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+const BUSY_READ_MSG = '系統暫時忙碌，請稍後重新整理頁面再試一次。';
+async function parseJsonOrBusy(res, writeMsg){
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch(e){ const err = new Error(writeMsg || BUSY_READ_MSG); err.friendly = true; throw err; }
+}
+async function fetchJsonRetry(url){
+  for(let i = 0; ; i++){
+    try { return await parseJsonOrBusy(await fetch(url)); }
+    catch(err){ if(!err.friendly || i >= 2) throw err; await new Promise(r => setTimeout(r, 1500)); }
+  }
+}
+function apiGet(action, extra){
+  const qs = new URLSearchParams(Object.assign({action}, extra||{}));
+  return fetchJsonRetry(API_URL + '?' + qs.toString());
+}
+async function apiPost(action, payload){
+  const res = await fetch(API_URL, {
+    method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify({action, payload})
+  });
+  return parseJsonOrBusy(res, '系統暫時忙碌，資料可能已經送出。請重新整理頁面確認目前狀態，不要重複送出。');
+}
+function errText(err){ return err.friendly ? err.message : '連線失敗：' + err.message; }
+function showMsg(el, cls, html){ el.className = 'msg ' + cls; el.innerHTML = html; }
+function evidenceViewUrl(url){
+  const m = String(url||'').match(/\/d\/([\w-]+)|[?&]id=([\w-]+)/);
+  return m ? 'https://drive.usercontent.google.com/download?id=' + (m[1]||m[2]) + '&export=view' : String(url||'');
+}
+function ymd(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function addDays(n){ const d = new Date(); d.setDate(d.getDate() + n); return ymd(d); }
+function readFiles(input){
+  const files = Array.from(input.files || []);
+  const big = files.find(f => f.size > MAX_FILE_MB * 1024 * 1024);
+  if(big) return Promise.reject(Object.assign(new Error('檔案「' + big.name + '」超過 ' + MAX_FILE_MB + 'MB'), {friendly:true}));
+  return Promise.all(files.map(f => new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{ const u = reader.result; resolve({name:f.name, mimeType:f.type, base64:u.slice(u.indexOf(',')+1)}); };
+    reader.onerror = reject;
+    reader.readAsDataURL(f);
+  })));
+}
+// 姓名記在瀏覽器方便下次帶入(密碼不記)
+function rememberName(n){ try{ localStorage.setItem('capa_name', n); }catch(e){} }
+function savedName(){ try{ return localStorage.getItem('capa_name') || ''; }catch(e){ return ''; } }
+
+function chooseRow(rowId, onChange){
+  const row = document.getElementById(rowId);
+  row.querySelectorAll('.choice-btn').forEach(b=>b.addEventListener('click', ()=>{
+    row.querySelectorAll('.choice-btn').forEach(x=>x.classList.toggle('sel', x===b));
+    row.dataset.value = b.dataset.v;
+    if(onChange) onChange(b.dataset.v);
+  }));
+}
+function setChoice(rowId, v){
+  const row = document.getElementById(rowId);
+  row.querySelectorAll('.choice-btn').forEach(x=>x.classList.toggle('sel', x.dataset.v===v));
+  row.dataset.value = v || '';
+}
+
+// ---- 分頁切換 ----
+function switchTab(key){
+  document.querySelectorAll('.hub-tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===key));
+  document.querySelectorAll('.hub-panel').forEach(p=>p.classList.toggle('active', p.id === 'tab-'+key));
+  window.scrollTo(0,0);
+}
+document.querySelectorAll('.hub-tab-btn').forEach(btn=>btn.addEventListener('click', ()=>{
+  switchTab(btn.dataset.tab);
+  if(btn.dataset.tab === 'list') loadList();
+}));
+
+// ════════════════ 總表 ════════════════
+let allRows = [], sortKey = 'capaNo', sortAsc = false;
+const isOpen = s => s !== '已結案' && s !== '已取消';
+
+function statusPill(r){
+  const cls = r.status === '已結案' ? 'done' : (r.status === '已取消' ? 'cancel' : 'wait');
+  return `<span class="pill ${cls}">${escHtml(r.status)}</span>` + (r.overdue ? `<span class="pill late">${escHtml(r.overdue)}</span>` : '');
+}
+function sevPill(s){ return s ? `<span class="pill sev-${escHtml(s)}">${escHtml(s)}</span>` : ''; }
+
+async function loadList(){
+  if(API_URL.indexOf('PASTE_') === 0){
+    document.getElementById('tbody').innerHTML = `<tr><td colspan="15" class="loading">尚未設定 API_URL，請先部署 capa_backend.gs 並把網址貼進 capa.html。</td></tr>`;
+    return;
+  }
+  try{
+    const data = await apiGet('listCapa');
+    if(!data.ok) throw Object.assign(new Error(data.error), {friendly:true});
+    allRows = data.rows || [];
+    renderKpis(); renderList();
+  }catch(err){
+    document.getElementById('tbody').innerHTML = `<tr><td colspan="15" class="loading">${escHtml(errText(err))}</td></tr>`;
+  }
+}
+function renderKpis(){
+  const month = ymd(new Date()).slice(0,7).replace('-','/');
+  const k = [
+    { t:'進行中', n: allRows.filter(r=>isOpen(r.status)).length, cls:'', f:'__open' },
+    { t:'回覆逾期', n: allRows.filter(r=>r.overdue==='回覆逾期').length, cls:'red', f:'__late' },
+    { t:'驗證到期', n: allRows.filter(r=>r.overdue==='驗證到期').length, cls:'orange', f:'__late' },
+    { t:'本月結案', n: allRows.filter(r=>r.status==='已結案' && String(r.closeTime).indexOf(month)===0).length, cls:'green', f:'已結案' }
+  ];
+  const el = document.getElementById('kpis');
+  el.innerHTML = k.map(x=>`<div class="kpi ${x.cls}" data-f="${x.f}"><div class="n">${x.n}</div><div class="t">${x.t}</div></div>`).join('');
+  el.querySelectorAll('.kpi').forEach(d=>d.onclick = ()=>{ document.getElementById('filterStatus').value = d.dataset.f; renderList(); });
+}
+function filteredRows(){
+  const kw = document.getElementById('filterText').value.trim().toLowerCase();
+  const st = document.getElementById('filterStatus').value;
+  const src = document.getElementById('filterSource').value;
+  let rows = allRows.filter(r=>{
+    if(st === '__open' && !isOpen(r.status)) return false;
+    if(st === '__late' && !r.overdue) return false;
+    if(st && st.indexOf('__') !== 0 && r.status !== st) return false;
+    if(src && r.source !== src) return false;
+    if(!kw) return true;
+    return [r.capaNo, r.title, r.model, r.ownerName, r.sourceRef, r.customer, r.station, r.openerName].join(' ').toLowerCase().indexOf(kw) !== -1;
+  });
+  rows.sort((a,b)=>{
+    const va = String(a[sortKey]==null?'':a[sortKey]), vb = String(b[sortKey]==null?'':b[sortKey]);
+    return sortAsc ? va.localeCompare(vb, 'zh-Hant', {numeric:true}) : vb.localeCompare(va, 'zh-Hant', {numeric:true});
+  });
+  return rows;
+}
+function renderList(){
+  const rows = filteredRows();
+  document.querySelectorAll('table.list th[data-k]').forEach(th=>{
+    th.classList.toggle('sorted', th.dataset.k === sortKey);
+    th.classList.toggle('asc', th.dataset.k === sortKey && sortAsc);
+  });
+  document.getElementById('countText').textContent = `共 ${rows.length} 筆`;
+  if(!rows.length){ document.getElementById('tbody').innerHTML = `<tr><td colspan="15" class="loading">沒有符合條件的 CAPA</td></tr>`; return; }
+  document.getElementById('tbody').innerHTML = rows.map(r=>`<tr>
+    <td><button class="link-btn" data-open="${escHtml(r.capaNo)}">${escHtml(r.capaNo)}</button></td>
+    <td>${statusPill(r)}</td>
+    <td>${sevPill(r.severity)}</td>
+    <td>${escHtml(r.source)}${r.customer ? '｜' + escHtml(r.customer) : ''}</td>
+    <td>${escHtml(r.sourceRef)}</td>
+    <td class="title-cell" title="${escHtml(r.title)}">${escHtml(r.title)}</td>
+    <td>${escHtml(r.model)}</td>
+    <td>${escHtml(r.station)}</td>
+    <td>${escHtml(r.ownerName)}</td>
+    <td>${r.actionsTotal ? r.actionsDone + ' / ' + r.actionsTotal : ''}</td>
+    <td>${escHtml(r.openTime)}</td>
+    <td>${escHtml(r.replyDue)}</td>
+    <td>${escHtml(r.verifyDue)}</td>
+    <td>${escHtml(r.closeTime && r.status !== '已取消' ? r.closeTime : '')}</td>
+    <td><button class="link-btn" data-open="${escHtml(r.capaNo)}">${isOpen(r.status) ? '查看/處理→' : '查看→'}</button></td>
+  </tr>`).join('');
+  document.querySelectorAll('[data-open]').forEach(b=>b.onclick = ()=>openDetail(b.dataset.open));
+}
+document.querySelectorAll('table.list th[data-k]').forEach(th=>th.addEventListener('click', ()=>{
+  if(sortKey === th.dataset.k) sortAsc = !sortAsc; else { sortKey = th.dataset.k; sortAsc = true; }
+  renderList();
+}));
+['filterText','filterStatus','filterSource'].forEach(id=>document.getElementById(id).addEventListener('input', renderList));
+document.getElementById('btnReload').onclick = loadList;
+document.getElementById('btnCsv').onclick = ()=>{
+  const cols = [['capaNo','CAPA單號'],['status','狀態'],['overdue','逾期'],['severity','嚴重度'],['source','來源'],['customer','客戶'],['sourceRef','來源單號'],
+    ['title','主旨'],['model','品名'],['station','站別'],['ownerName','負責人'],['openerName','開單人'],['openTime','開立時間'],['replyDue','回覆期限'],
+    ['verifyDue','驗證期限'],['closeTime','結案時間']];
+  const q = v => '"' + String(v==null?'':v).replace(/"/g,'""') + '"';
+  const lines = [cols.map(c=>q(c[1])).join(',')].concat(filteredRows().map(r=>cols.map(c=>q(r[c[0]])).join(',')));
+  const blob = new Blob(['﻿' + lines.join('\r\n')], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'CAPA總表_' + ymd(new Date()) + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+};
+
+// ════════════════ 開立CAPA ════════════════
+let people = [];
+async function loadPeople(){
+  if(API_URL.indexOf('PASTE_') === 0) return;
+  try{
+    const data = await apiGet('listPeople');
+    if(!data.ok) return;
+    people = data.people || [];
+    document.getElementById('peopleList').innerHTML = people.map(p=>`<option value="${escHtml(p.name)}">${escHtml(p.roles.join('/'))}</option>`).join('');
+  }catch(e){}
+}
+function onSourceChange(v){
+  document.getElementById('ticketBox').hidden = v !== '特採異常單';
+  document.getElementById('refBox').hidden = v === '特採異常單';
+  document.getElementById('customerWrap').hidden = v !== '客訴';
+  const lbl = { '客訴':'客訴單號 <span class="req">*</span>', '內部稽核':'稽核發現編號 <span class="req">*</span>', '手動':'參考單號（選填）' }[v] || '來源單號';
+  document.getElementById('refLabel').innerHTML = lbl;
+  if(v === '客訴' && !document.getElementById('sevRow').dataset.value) onSevChange('高', true);
+}
+function onSevChange(v, setUi){
+  if(setUi) setChoice('sevRow', v);
+  document.getElementById('f_replyDue').value = addDays(SEV_DAYS[v] || 7);
+}
+chooseRow('sourceRow', onSourceChange);
+chooseRow('sevRow', v=>onSevChange(v));
+
+let ticketBlocked = false;
+async function lookupTicket(){
+  const no = document.getElementById('f_ticketNo').value.trim();
+  const msg = document.getElementById('ticketMsg');
+  if(!no){ showMsg(msg, 'err', '請輸入特採異常單號'); return; }
+  showMsg(msg, 'warn', '查詢中…');
+  try{
+    const data = await apiGet('getTicketBrief', {ticket: no});
+    if(!data.ok){ showMsg(msg, 'err', escHtml(data.error)); return; }
+    const t = data.ticket;
+    const set = (id, v)=>{ if(v) document.getElementById(id).value = v; };
+    const stSel = document.getElementById('f_station');
+    if([...stSel.options].some(o=>o.value === t.station)) stSel.value = t.station;
+    set('f_model', t.model); set('f_workOrder', t.workOrder); set('f_lotQty', t.batchQty); set('f_defectQty', t.defectCount);
+    if(!document.getElementById('f_title').value) document.getElementById('f_title').value = `${t.station}${t.defectType ? ' ' + t.defectType : ''}${t.defectItems ? '：' + t.defectItems : ''}`.slice(0, 80);
+    document.getElementById('f_d2').value = [
+      `【特採異常單 ${t.ticketNo}】`,
+      `日期：${t.date}　站別：${t.station}${t.equipment ? '　設備/爐號：' + t.equipment : ''}${t.vendor ? '　廠商：' + t.vendor : ''}`,
+      `品名：${t.model}${t.workOrder ? '　工單：' + t.workOrder : ''}`,
+      `不良分類：${t.defectType || '-'}　不良項目：${t.defectItems || '-'}`,
+      t.batchQty ? `批量/不良數：${t.batchQty} / ${t.defectCount || '-'}` : '',
+      t.remark ? `開單備註：${t.remark}` : '',
+      `特採處置狀態：${t.status}`
+    ].filter(Boolean).join('\n');
+    ticketBlocked = !!data.existingCapa;
+    if(data.existingCapa){
+      showMsg(msg, 'err', `此異常單已開立過 CAPA：<a href="#" id="dupLink">${escHtml(data.existingCapa)}</a>，不能重複開立。`);
+      document.getElementById('dupLink').onclick = e=>{ e.preventDefault(); openDetail(data.existingCapa); };
+    }else{
+      showMsg(msg, 'ok', `已帶入 ${escHtml(t.ticketNo)}（${escHtml(t.station)}／${escHtml(t.model)}），請確認主旨與問題描述。`);
+    }
+  }catch(err){ showMsg(msg, 'err', escHtml(errText(err))); }
+}
+document.getElementById('btnTicket').onclick = lookupTicket;
+document.getElementById('f_ticketNo').addEventListener('keydown', e=>{ if(e.key === 'Enter') lookupTicket(); });
+
+document.getElementById('btnCreate').onclick = async ()=>{
+  const btn = document.getElementById('btnCreate'), msg = document.getElementById('createMsg');
+  const v = id => document.getElementById(id).value.trim();
+  const source = document.getElementById('sourceRow').dataset.value || '';
+  const payload = {
+    source, sourceRef: source === '特採異常單' ? v('f_ticketNo') : v('f_sourceRef'), customer: source === '客訴' ? v('f_customer') : '',
+    title: v('f_title'), station: v('f_station'), model: v('f_model'), workOrder: v('f_workOrder'),
+    lotQty: v('f_lotQty'), defectQty: v('f_defectQty'), severity: document.getElementById('sevRow').dataset.value || '',
+    d2Problem: v('f_d2'), ownerName: v('f_owner'), replyDue: v('f_replyDue'), teamMembers: v('f_team'),
+    name: v('f_name'), password: document.getElementById('f_pw').value
+  };
+  if(!source){ showMsg(msg, 'err', '請選擇開單來源'); return; }
+  if(source === '特採異常單' && ticketBlocked){ showMsg(msg, 'err', '此異常單已開立過 CAPA，不能重複開立'); return; }
+  if(!payload.name || !payload.password){ showMsg(msg, 'err', '請輸入開單人姓名和密碼'); return; }
+  btn.disabled = true; showMsg(msg, 'warn', '送出中…');
+  try{
+    payload.files = await readFiles(document.getElementById('f_files'));
+    const res = await apiPost('createCapa', payload);
+    if(!res.ok){ showMsg(msg, 'err', escHtml(res.error)); btn.disabled = false; return; }
+    rememberName(payload.name);
+    showMsg(msg, 'ok', `✅ 已開立 <b>${escHtml(res.capaNo)}</b>，已通知負責人 ${escHtml(payload.ownerName)}。<a href="#" id="newLink">查看明細 →</a>` +
+      (res.evidenceError ? `\n⚠️ 附件上傳失敗：${escHtml(res.evidenceError)}` : ''));
+    document.getElementById('newLink').onclick = e=>{ e.preventDefault(); resetForm(); openDetail(res.capaNo); };
+    btn.disabled = false;
+  }catch(err){ showMsg(msg, 'err', escHtml(errText(err))); btn.disabled = false; }
+};
+function resetForm(){
+  ['f_ticketNo','f_sourceRef','f_customer','f_title','f_model','f_workOrder','f_lotQty','f_defectQty','f_d2','f_owner','f_team','f_replyDue','f_pw']
+    .forEach(id=>document.getElementById(id).value = '');
+  document.getElementById('f_station').value = '';
+  document.getElementById('f_files').value = '';
+  setChoice('sourceRow', ''); setChoice('sevRow', '');
+  ['ticketBox','refBox'].forEach(id=>document.getElementById(id).hidden = true);
+  ['ticketMsg','createMsg'].forEach(id=>document.getElementById(id).className = 'msg');
+  ticketBlocked = false;
+}
+
+// ════════════════ CAPA明細 ════════════════
+let cur = null;
+async function openDetail(capaNo){
+  document.getElementById('detailTabBtn').hidden = false;
+  switchTab('detail');
+  const el = document.getElementById('detail');
+  el.innerHTML = '<div class="loading">讀取中…</div>';
+  try{
+    const data = await apiGet('getCapa', {capa: capaNo});
+    if(!data.ok){ el.innerHTML = `<div class="sec"><div class="msg err">${escHtml(data.error)}</div></div>`; return; }
+    cur = data.capa;
+    renderDetail(cur);
+  }catch(err){ el.innerHTML = `<div class="sec"><div class="msg err">${escHtml(errText(err))}</div></div>`; }
+}
+
+function stepperHtml(status){
+  if(status === '已取消') return `<div class="msg warn" style="display:block;">此 CAPA 已取消</div>`;
+  const idx = STEPS.indexOf(status);
+  return `<div class="stepper">${STEPS.map((s,i)=>{
+    const cls = (i < idx || status === '已結案') ? 'done' : (i === idx ? 'cur' : '');
+    return `<div class="step ${cls}">${STEP_LABEL[s]}</div>`;
+  }).join('')}</div>`;
+}
+function textOr(v){ return v ? escHtml(v) : '<span style="color:#aaa">（未填）</span>'; }
+function sourceRefHtml(c){
+  if(!c.sourceRef) return '';
+  if(c.source === '特採異常單') return `<a href="${DRI_FORM_BASE_URL}?ticket=${encodeURIComponent(c.sourceRef)}" target="_blank" style="color:#2563eb;">${escHtml(c.sourceRef)} ↗</a>`;
+  return escHtml(c.sourceRef);
+}
+
+function renderDetail(c){
+  const facts = [
+    ['來源', escHtml(c.source) + (c.customer ? '｜客戶：' + escHtml(c.customer) : '')],
+    ['來源單號', sourceRefHtml(c)],
+    ['嚴重度', sevPill(c.severity)],
+    ['站別', escHtml(c.station)],
+    ['品名', escHtml(c.model)],
+    ['工單號', escHtml(c.workOrder)],
+    ['批量/不良數', c.lotQty || c.defectQty ? escHtml(c.lotQty || '-') + ' / ' + escHtml(c.defectQty || '-') : ''],
+    ['開單', escHtml(c.openerName) + '　' + escHtml(c.openTime)],
+    ['負責人', escHtml(c.ownerName) + (c.ownerProxies && c.ownerProxies.length ? `<span style="color:#999;">（代理：${escHtml(c.ownerProxies.join('、'))}）</span>` : '')],
+    ['回覆期限', escHtml(c.replyDue) + (c.overdue === '回覆逾期' ? '<span class="pill late">逾期</span>' : '')],
+    ['驗證期限', escHtml(c.verifyDue) + (c.overdue === '驗證到期' ? '<span class="pill late">已到期</span>' : '')],
+    ['回合', c.round > 1 ? `第 ${c.round} 回合（曾退回 ${c.round - 1} 次）` : '第 1 回合']
+  ].filter(f=>f[1]);
+  const half = Math.ceil(facts.length / 2);
+  const factTable = list => `<table class="facts">${list.map(f=>`<tr><td class="k">${f[0]}</td><td>${f[1]}</td></tr>`).join('')}</table>`;
+
+  const editable = c.status === '待責任單位回覆';
+  document.getElementById('detail').innerHTML = `
+    <div class="d-tools">
+      <button type="button" class="tool-btn" id="btnBack">← 回總表</button>
+      <button type="button" class="tool-btn" id="btnRefresh">🔄 重新整理</button>
+      <button type="button" class="tool-btn" id="btnPrint">🖨 列印 8D 報告</button>
+    </div>
+    <div class="d-head">
+      <div class="print-only" style="font-size:18px;font-weight:700;margin-bottom:6px;">8D 矯正預防措施報告</div>
+      <div class="d-no">${escHtml(c.capaNo)}　${statusPill(c)}</div>
+      <div class="d-title">${escHtml(c.title)}</div>
+      ${stepperHtml(c.status)}
+      <div class="facts-grid" style="margin-top:10px;">${factTable(facts.slice(0, half))}${factTable(facts.slice(half))}</div>
+    </div>
+    ${editable ? ownerFormHtml(c) : readonly8dHtml(c)}
+    ${actionPanelHtml(c)}
+    ${evidenceHtml(c)}
+    ${historyHtml(c)}
+    ${(c.status !== '已結案' && c.status !== '已取消') ? cancelHtml() : ''}
+  `;
+  document.getElementById('btnBack').onclick = ()=>{ switchTab('list'); loadList(); };
+  document.getElementById('btnRefresh').onclick = ()=>openDetail(c.capaNo);
+  document.getElementById('btnPrint').onclick = ()=>window.print();
+  if(editable) bindOwnerForm(c);
+  bindActionPanel(c);
+  if(c.status !== '已結案' && c.status !== '已取消') bindCancel(c);
+  const nm = savedName();
+  document.querySelectorAll('.auth-name').forEach(i=>{ if(!i.value) i.value = nm; });
+}
+
+// ---- 唯讀 8D ----
+function actionsTableHtml(actions){
+  if(!actions || !actions.length) return '<div class="body empty">（未填）</div>';
+  return `<table class="act"><thead><tr><th>類別</th><th>對策內容</th><th>負責人</th><th>預計完成</th><th>狀態</th><th>完成日</th></tr></thead><tbody>
+    ${actions.map(a=>`<tr><td>${escHtml(a.type)}</td><td style="white-space:pre-wrap;">${escHtml(a.desc)}</td><td>${escHtml(a.owner)}</td>
+      <td>${escHtml(a.due)}</td><td>${a.status === '已完成' ? '<span class="pill done">已完成</span>' : '<span class="pill wait">未完成</span>'}</td><td>${escHtml(a.doneDate)}</td></tr>`).join('')}
+  </tbody></table>`;
+}
+function sec(d, title, inner){ return `<div class="sec"><h3><span class="d">${d}</span>${title}</h3>${inner}</div>`; }
+function body(v){ return v ? `<div class="body">${escHtml(v)}</div>` : '<div class="body empty">（未填）</div>'; }
+function readonly8dHtml(c){
+  const std = c.d7Standard || {docs:[], text:''};
+  return [
+    sec('D1', '成立小組', `<div class="body">負責人：${escHtml(c.ownerName)}${c.teamMembers ? '\n小組成員：' + escHtml(c.teamMembers) : ''}</div>`),
+    sec('D2', '問題描述', body(c.d2Problem)),
+    sec('D3', '暫時對策（圍堵）', body(c.d3Containment) + (c.d3Suspect ? `<div class="sub-k">可疑品處置（庫存/在製/在途/客戶端）</div>${body(c.d3Suspect)}` : '')),
+    sec('D4', '根本原因分析',
+      (c.d4Why && c.d4Why.length ? `<div class="sub-k">5 Why</div><ol class="why-list">${c.d4Why.map(w=>`<li>${escHtml(w)}</li>`).join('')}</ol>` : '') +
+      `<div class="sub-k">發生原因（為什麼會做出不良）</div>${body(c.d4Occur)}<div class="sub-k">流出原因（為什麼沒被攔下）</div>${body(c.d4Escape)}`),
+    sec('D5/D6', '永久對策與執行', actionsTableHtml(c.d5Actions)),
+    sec('D7', '預防再發／標準化',
+      `<div class="sub-k">已修訂文件</div><div class="body">${std.docs && std.docs.length ? escHtml(std.docs.join('、')) : '（無）'}${std.text ? '\n' + escHtml(std.text) : ''}</div>` +
+      `<div class="sub-k">水平展開（其他品名/機台/站別）</div>${body(c.d7Horizontal)}`),
+    sec('D8', '審查、驗證與結案', `<table class="facts">
+      <tr><td class="k">品保審查</td><td>${c.reviewerName ? escHtml(c.reviewerName) + '｜' + escHtml(c.reviewChoice) + '｜' + escHtml(c.reviewTime) + (c.reviewRemark ? '<br>' + escHtml(c.reviewRemark) : '') : '—'}</td></tr>
+      <tr><td class="k">驗證方式</td><td>${textOr(c.verifyMethod)}</td></tr>
+      <tr><td class="k">驗證結果</td><td>${c.verifierName ? escHtml(c.verifierName) + '｜' + escHtml(c.verifyEffective) + '｜' + escHtml(c.verifyTime) + '<br><span style="white-space:pre-wrap;">' + escHtml(c.verifyResult) + '</span>' : '—'}</td></tr>
+      <tr><td class="k">結案核准</td><td>${c.closerName ? escHtml(c.closerName) + '｜' + escHtml(c.closeChoice) + '｜' + escHtml(c.closeTime) + (c.closeRemark ? '<br>' + escHtml(c.closeRemark) : '') : '—'}</td></tr>
+    </table>`)
+  ].join('');
+}
+
+// ---- 責任單位填寫 D1~D7 ----
+function actionRowHtml(a){
+  a = a || {type:'矯正', desc:'', owner:'', due:'', status:'未完成', doneDate:''};
+  return `<tr>
+    <td><select class="a-type"><option${a.type==='矯正'?' selected':''}>矯正</option><option${a.type==='預防'?' selected':''}>預防</option></select></td>
+    <td><textarea class="a-desc" style="min-height:38px;">${escHtml(a.desc)}</textarea></td>
+    <td><input type="text" class="a-owner" value="${escHtml(a.owner)}"></td>
+    <td><input type="date" class="a-due" value="${escHtml(a.due)}"></td>
+    <td><select class="a-status"><option${a.status!=='已完成'?' selected':''}>未完成</option><option${a.status==='已完成'?' selected':''}>已完成</option></select>
+      <input type="hidden" class="a-done" value="${escHtml(a.doneDate)}"></td>
+    <td class="del"><button type="button" class="del-btn" title="刪除">✕</button></td>
+  </tr>`;
+}
+function ownerFormHtml(c){
+  const std = c.d7Standard || {docs:[], text:''};
+  const why = (c.d4Why || []).concat(['','','','','']).slice(0, 5);
+  const returned = c.round > 1 && (c.reviewChoice === '退回' || c.verifyEffective === '無效');
+  const retNote = !returned ? '' : (c.verifyEffective === '無效' && c.verifyTime > (c.reviewTime || '')
+    ? `⚠️ 成效驗證未通過（${escHtml(c.verifierName)}，${escHtml(c.verifyTime)}）：${escHtml(c.verifyResult)}`
+    : `⚠️ 品保審查退回（${escHtml(c.reviewerName)}，${escHtml(c.reviewTime)}）：${escHtml(c.reviewRemark)}`);
+  return `<div class="sec action-panel" style="display:block;">
+    <h3>📝 責任單位回覆 D1~D7（${escHtml(c.ownerName)}）</h3>
+    ${retNote ? `<div class="return-note">${retNote}</div>` : ''}
+    <div class="hint" style="margin-top:0;">可先「暫存」分次填寫，全部完成後再「送出審查」。</div>
+
+    <label>D1 小組成員</label>
+    <input type="text" id="e_team" value="${escHtml(c.teamMembers)}">
+
+    <label>D2 問題描述 <span class="req">*</span></label>
+    <textarea id="e_d2" style="min-height:110px;">${escHtml(c.d2Problem)}</textarea>
+
+    <label>D3 暫時對策（圍堵） <span class="req">*</span></label>
+    <textarea id="e_d3" placeholder="例如：全數隔離、100%全檢、加嚴抽樣、暫停出貨…">${escHtml(c.d3Containment)}</textarea>
+    <label>D3 可疑品處置（庫存/在製/在途/客戶端清查結果）</label>
+    <textarea id="e_d3s" placeholder="例如：倉庫 1,200pcs 全檢挑出 3pcs；在途 0；客戶端庫存 500pcs 委託篩選…">${escHtml(c.d3Suspect)}</textarea>
+
+    <label>D4 5 Why 分析（逐層追問「為什麼」，不必填滿）</label>
+    ${why.map((w,i)=>`<input type="text" class="e-why" style="margin-top:${i?6:0}px;" placeholder="Why ${i+1}" value="${escHtml(w)}">`).join('')}
+    <div class="grid2">
+      <div><label>D4 發生原因 <span class="req">*</span></label><textarea id="e_occur" placeholder="為什麼會做出不良？(人/機/料/法/環/測)">${escHtml(c.d4Occur)}</textarea></div>
+      <div><label>D4 流出原因 <span class="req">*</span></label><textarea id="e_escape" placeholder="為什麼檢驗沒有攔下？">${escHtml(c.d4Escape)}</textarea></div>
+    </div>
+
+    <label>D5/D6 永久對策 <span class="req">*</span>（矯正＝消除這次的原因；預防＝避免類似問題發生）</label>
+    <div style="overflow:auto;"><table class="act" id="actTable"><thead><tr><th>類別</th><th style="min-width:220px;">對策內容</th><th>負責人</th><th>預計完成</th><th>狀態</th><th></th></tr></thead>
+      <tbody>${(c.d5Actions && c.d5Actions.length ? c.d5Actions : [null]).map(actionRowHtml).join('')}</tbody></table></div>
+    <button type="button" class="add-btn" id="btnAddAct">＋ 新增對策</button>
+
+    <label>D7 標準化（已修訂/需修訂的文件）</label>
+    <div class="chk-row">${STD_DOCS.map(d=>`<label><input type="checkbox" class="e-std" value="${escHtml(d)}"${(std.docs||[]).indexOf(d)!==-1?' checked':''}>${escHtml(d)}</label>`).join('')}</div>
+    <input type="text" id="e_stdText" style="margin-top:6px;" placeholder="文件編號/版次，例如：WI-MIM-012 Rev.C" value="${escHtml(std.text)}">
+    <label>D7 水平展開（其他品名/機台/站別是否有相同風險）</label>
+    <textarea id="e_horiz">${escHtml(c.d7Horizontal)}</textarea>
+
+    <label>附件（佐證照片、分析報告…可多選）</label>
+    <input type="file" id="e_files" multiple>
+
+    <div class="auth-box">
+      <div class="grid2">
+        <div><label>姓名</label><input type="text" id="e_name" class="auth-name" placeholder="負責人/代理人/品保"></div>
+        <div><label>密碼</label><input type="password" id="e_pw"></div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="submit-btn secondary" id="btnOwnerSave">💾 暫存</button>
+      <button class="submit-btn" id="btnOwnerSubmit">送出審查</button>
+    </div>
+    <div class="msg" id="ownerMsg"></div>
+  </div>`;
+}
+function collectActions(tbody){
+  return [...tbody.querySelectorAll('tr')].map(tr=>({
+    type: tr.querySelector('.a-type').value, desc: tr.querySelector('.a-desc').value.trim(),
+    owner: tr.querySelector('.a-owner').value.trim(), due: tr.querySelector('.a-due').value,
+    status: tr.querySelector('.a-status').value,
+    doneDate: tr.querySelector('.a-status').value === '已完成' ? (tr.querySelector('.a-done').value || ymd(new Date())) : ''
+  })).filter(a=>a.desc);
+}
+function bindOwnerForm(c){
+  const tbody = document.querySelector('#actTable tbody');
+  const bindDel = ()=>tbody.querySelectorAll('.del-btn').forEach(b=>b.onclick = ()=>{ b.closest('tr').remove(); if(!tbody.children.length) tbody.insertAdjacentHTML('beforeend', actionRowHtml()); bindDel(); });
+  bindDel();
+  document.getElementById('btnAddAct').onclick = ()=>{ tbody.insertAdjacentHTML('beforeend', actionRowHtml()); bindDel(); };
+  const send = async submit=>{
+    const msg = document.getElementById('ownerMsg');
+    const name = document.getElementById('e_name').value.trim(), password = document.getElementById('e_pw').value;
+    if(!name || !password){ showMsg(msg, 'err', '請輸入姓名和密碼'); return; }
+    const btns = [document.getElementById('btnOwnerSave'), document.getElementById('btnOwnerSubmit')];
+    btns.forEach(b=>b.disabled = true); showMsg(msg, 'warn', submit ? '送出中…' : '暫存中…');
+    try{
+      const payload = {
+        capaNo: c.capaNo, name, password,
+        teamMembers: document.getElementById('e_team').value.trim(),
+        d2Problem: document.getElementById('e_d2').value.trim(),
+        d3Containment: document.getElementById('e_d3').value.trim(),
+        d3Suspect: document.getElementById('e_d3s').value.trim(),
+        d4Why: [...document.querySelectorAll('.e-why')].map(i=>i.value.trim()),
+        d4Occur: document.getElementById('e_occur').value.trim(),
+        d4Escape: document.getElementById('e_escape').value.trim(),
+        d5Actions: collectActions(tbody),
+        d7Standard: { docs: [...document.querySelectorAll('.e-std:checked')].map(i=>i.value), text: document.getElementById('e_stdText').value.trim() },
+        d7Horizontal: document.getElementById('e_horiz').value.trim(),
+        files: await readFiles(document.getElementById('e_files'))
+      };
+      const res = await apiPost(submit ? 'ownerSubmit' : 'ownerSave', payload);
+      if(!res.ok){ showMsg(msg, 'err', escHtml(res.error)); btns.forEach(b=>b.disabled = false); return; }
+      rememberName(name);
+      showMsg(msg, 'ok', (submit ? '✅ 已送出審查，已通知品保。' : '💾 已暫存。') + (res.evidenceError ? '\n⚠️ 附件上傳失敗：' + escHtml(res.evidenceError) : ''));
+      setTimeout(()=>openDetail(c.capaNo), submit ? 1200 : 800);
+    }catch(err){ showMsg(msg, 'err', escHtml(errText(err))); btns.forEach(b=>b.disabled = false); }
+  };
+  document.getElementById('btnOwnerSave').onclick = ()=>send(false);
+  document.getElementById('btnOwnerSubmit').onclick = ()=>send(true);
+}
+
+// ---- 各關卡操作面板 ----
+function authHtml(prefix, who){
+  return `<div class="auth-box"><div class="grid2">
+    <div><label>姓名（${who}）</label><input type="text" id="${prefix}_name" class="auth-name"></div>
+    <div><label>密碼</label><input type="password" id="${prefix}_pw"></div>
+  </div></div>`;
+}
+function actionPanelHtml(c){
+  if(c.status === '待品保審查'){
+    return `<div class="sec action-panel">
+      <h3>🔍 品保審查</h3>
+      <div class="hint" style="margin-top:0;">確認：根本原因是否找到真因(含流出原因)、對策是否對應原因、負責人與日期是否明確。</div>
+      <label>審查結果 <span class="req">*</span></label>
+      <div class="choice-row" id="rvChoice"><button type="button" class="choice-btn" data-v="核准">核准對策</button><button type="button" class="choice-btn" data-v="退回">退回修正</button></div>
+      <div id="rvApprove" hidden>
+        <div class="grid2">
+          <div><label>成效驗證期限 <span class="req">*</span></label><input type="date" id="rv_due" value="${addDays(30)}"></div>
+          <div><label>驗證方式 <span class="req">*</span></label><input type="text" id="rv_method" placeholder="例如：連續3批全尺寸CPK≥1.33、30天無再發"></div>
+        </div>
+      </div>
+      <label id="rvRemarkLabel">審查意見</label>
+      <textarea id="rv_remark"></textarea>
+      ${authHtml('rv', '品保工程師/品保主管')}
+      <button class="submit-btn" id="btnReview">送出審查結果</button>
+      <div class="msg" id="rvMsg"></div>
+    </div>`;
+  }
+  if(c.status === '待成效驗證'){
+    return `<div class="sec action-panel">
+      <h3>🧪 成效驗證</h3>
+      <div class="hint" style="margin-top:0;">驗證方式：<b>${escHtml(c.verifyMethod)}</b>　期限：<b>${escHtml(c.verifyDue)}</b>${c.closeChoice === '退回' ? `<div class="return-note" style="margin-top:8px;">⚠️ 結案退回（${escHtml(c.closerName)}，${escHtml(c.closeTime)}）：${escHtml(c.closeRemark)}</div>` : ''}</div>
+      <label>對策完成狀態（全部完成才能判定有效）</label>
+      <div style="overflow:auto;"><table class="act"><thead><tr><th>類別</th><th>對策內容</th><th>負責人</th><th>預計完成</th><th>已完成</th><th>完成日</th></tr></thead><tbody>
+        ${(c.d5Actions||[]).map((a,i)=>`<tr><td>${escHtml(a.type)}</td><td style="white-space:pre-wrap;">${escHtml(a.desc)}</td><td>${escHtml(a.owner)}</td><td>${escHtml(a.due)}</td>
+          <td style="text-align:center;"><input type="checkbox" class="vf-done" data-i="${i}" style="width:auto;"${a.status==='已完成'?' checked':''}></td>
+          <td><input type="date" class="vf-date" data-i="${i}" value="${escHtml(a.doneDate)}"></td></tr>`).join('')}
+      </tbody></table></div>
+      <label>驗證結果 <span class="req">*</span></label>
+      <textarea id="vf_result" style="min-height:90px;" placeholder="例如：10/21~11/20 共 8 批，B基準孔 CPK 1.52~1.78，無再發。附量測報告。"></textarea>
+      <label>判定 <span class="req">*</span></label>
+      <div class="choice-row" id="vfChoice"><button type="button" class="choice-btn" data-v="有效">有效（送結案核准）</button><button type="button" class="choice-btn" data-v="無效">無效（退回責任單位）</button></div>
+      <label>驗證附件（量測報告、照片…）</label>
+      <input type="file" id="vf_files" multiple>
+      ${authHtml('vf', '品保工程師/品保主管')}
+      <button class="submit-btn" id="btnVerify">送出驗證結果</button>
+      <div class="msg" id="vfMsg"></div>
+    </div>`;
+  }
+  if(c.status === '待結案核准'){
+    return `<div class="sec action-panel">
+      <h3>🏁 結案核准</h3>
+      <label>結果 <span class="req">*</span></label>
+      <div class="choice-row" id="clChoice"><button type="button" class="choice-btn" data-v="核准">核准結案</button><button type="button" class="choice-btn" data-v="退回">退回成效驗證</button></div>
+      <label>意見</label>
+      <textarea id="cl_remark"></textarea>
+      ${authHtml('cl', '品保主管')}
+      <button class="submit-btn" id="btnClose">送出</button>
+      <div class="msg" id="clMsg"></div>
+    </div>`;
+  }
+  return '';
+}
+async function postStep(btnId, msgId, action, payload, okText){
+  const btn = document.getElementById(btnId), msg = document.getElementById(msgId);
+  if(!payload.name || !payload.password){ showMsg(msg, 'err', '請輸入姓名和密碼'); return; }
+  btn.disabled = true; showMsg(msg, 'warn', '送出中…');
+  try{
+    const res = await apiPost(action, payload);
+    if(!res.ok){ showMsg(msg, 'err', escHtml(res.error)); btn.disabled = false; return; }
+    rememberName(payload.name);
+    showMsg(msg, 'ok', okText + (res.evidenceError ? '\n⚠️ 附件上傳失敗：' + escHtml(res.evidenceError) : ''));
+    setTimeout(()=>openDetail(payload.capaNo), 1200);
+  }catch(err){ showMsg(msg, 'err', escHtml(errText(err))); btn.disabled = false; }
+}
+function bindActionPanel(c){
+  const val = id => document.getElementById(id).value.trim();
+  if(c.status === '待品保審查'){
+    chooseRow('rvChoice', v=>{
+      document.getElementById('rvApprove').hidden = v !== '核准';
+      document.getElementById('rvRemarkLabel').innerHTML = v === '退回' ? '退回意見 <span class="req">*</span>' : '審查意見';
+    });
+    document.getElementById('btnReview').onclick = ()=>postStep('btnReview', 'rvMsg', 'reviewRespond', {
+      capaNo: c.capaNo, choice: document.getElementById('rvChoice').dataset.value || '',
+      verifyDue: val('rv_due'), verifyMethod: val('rv_method'), remark: val('rv_remark'),
+      name: val('rv_name'), password: document.getElementById('rv_pw').value
+    }, '✅ 已送出審查結果，已通知負責人。');
+  }
+  if(c.status === '待成效驗證'){
+    chooseRow('vfChoice');
+    document.querySelectorAll('.vf-done').forEach(cb=>cb.addEventListener('change', ()=>{
+      const d = document.querySelector(`.vf-date[data-i="${cb.dataset.i}"]`);
+      if(cb.checked && !d.value) d.value = ymd(new Date());
+      if(!cb.checked) d.value = '';
+    }));
+    document.getElementById('btnVerify').onclick = async ()=>{
+      let files;
+      try{ files = await readFiles(document.getElementById('vf_files')); }
+      catch(err){ showMsg(document.getElementById('vfMsg'), 'err', escHtml(errText(err))); return; }
+      postStep('btnVerify', 'vfMsg', 'verifyRespond', {
+        capaNo: c.capaNo, effective: document.getElementById('vfChoice').dataset.value || '', verifyResult: val('vf_result'),
+        actionStatus: [...document.querySelectorAll('.vf-done')].map(cb=>({
+          status: cb.checked ? '已完成' : '未完成', doneDate: document.querySelector(`.vf-date[data-i="${cb.dataset.i}"]`).value
+        })),
+        files, name: val('vf_name'), password: document.getElementById('vf_pw').value
+      }, '✅ 已送出驗證結果。');
+    };
+  }
+  if(c.status === '待結案核准'){
+    chooseRow('clChoice');
+    document.getElementById('btnClose').onclick = ()=>postStep('btnClose', 'clMsg', 'closeRespond', {
+      capaNo: c.capaNo, choice: document.getElementById('clChoice').dataset.value || '', remark: val('cl_remark'),
+      name: val('cl_name'), password: document.getElementById('cl_pw').value
+    }, '✅ 已送出。');
+  }
+}
+
+// ---- 附件、歷程、取消 ----
+function evidenceHtml(c){
+  const ev = c.evidence || [];
+  return sec('📎', '附件', ev.length ? `<ul class="ev-list">${ev.map(e=>`<li><a href="${escHtml(evidenceViewUrl(e.url))}" target="_blank">${escHtml(e.name)}</a> <span class="meta">${escHtml(e.step)}｜${escHtml(e.by)}｜${escHtml(e.time)}</span></li>`).join('')}</ul>` : '<div class="body empty">（無）</div>');
+}
+function historyHtml(c){
+  const h = c.history || [];
+  return sec('🕘', '處理歷程', h.length ? `<table class="hist">${h.map(x=>`<tr><td>${escHtml(x.time)}</td><td><b>${escHtml(x.step)}</b>｜${escHtml(x.actor)}｜${escHtml(x.action)}${x.remark ? '<br><span style="color:#666;white-space:pre-wrap;">' + escHtml(x.remark) + '</span>' : ''}</td></tr>`).join('')}</table>` : '<div class="body empty">（無）</div>');
+}
+function cancelHtml(){
+  return `<div class="sec no-print" id="cancelWrap">
+    <button type="button" class="link-btn" id="cancelOpen" style="color:#c0392b;">取消此 CAPA（品保主管）</button>
+    <div id="cancelForm" hidden>
+      <label>取消原因 <span class="req">*</span></label>
+      <textarea id="cc_remark" placeholder="例如：重複開單、判定非品質問題…"></textarea>
+      ${authHtml('cc', '品保主管')}
+      <button class="submit-btn danger" id="btnCancel">確認取消</button>
+      <div class="msg" id="ccMsg"></div>
+    </div>
+  </div>`;
+}
+function bindCancel(c){
+  document.getElementById('cancelOpen').onclick = ()=>{ document.getElementById('cancelForm').hidden = false; document.getElementById('cancelOpen').hidden = true; };
+  document.getElementById('btnCancel').onclick = ()=>postStep('btnCancel', 'ccMsg', 'cancelCapa', {
+    capaNo: c.capaNo, remark: document.getElementById('cc_remark').value.trim(),
+    name: document.getElementById('cc_name').value.trim(), password: document.getElementById('cc_pw').value
+  }, '已取消此 CAPA。');
+}
+
+// ════════════════ 初始化 ════════════════
+// 網址參數：?capa=XXX 直接開明細(Teams卡片按鈕)；?tab=form&from=特採單號 從特採簽核頁帶過來開單。
+// Portal 內嵌(iframe srcdoc)讀不到網址參數，只會顯示總表，不影響使用。
+(function init(){
+  document.getElementById('f_name').value = savedName();
+  loadPeople();
+  const qs = new URLSearchParams(location.search);
+  if(qs.get('capa')){ openDetail(qs.get('capa')); loadList(); return; }
+  if(qs.get('tab') === 'form'){
+    switchTab('form');
+    if(qs.get('from')){
+      setChoice('sourceRow', '特採異常單'); onSourceChange('特採異常單');
+      document.getElementById('f_ticketNo').value = qs.get('from');
+      lookupTicket();
+    }
+  }
+  loadList();
+})();
+</script>
+</body>
+</html>
