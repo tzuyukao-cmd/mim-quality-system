@@ -2374,7 +2374,9 @@ function sinterDownloadDetailExcel(){
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '燒結量測明細');
   const safeTag = String(ctx.furnace||'').replace(/[\\\/:*?"<>|]/g,'_');
-  XLSX.writeFile(wb, `燒結量測明細_爐號${safeTag}_${ctx.date||''}.xlsx`);
+  // 2026-10-27：檔名加品名(例E989MountA)，同爐A/B兩模分開下載才不會撞名
+  const prodTag = String((res.summary && res.summary.product) || '').trim().replace(/[\\\/:*?"<>|]/g,'_').replace(/\s+/g,'');
+  XLSX.writeFile(wb, `燒結量測明細_爐號${safeTag}${prodTag ? '_' + prodTag : ''}_${ctx.date||''}.xlsx`);
 }
 
 function sinterBuildDetailHtml(rows){
