@@ -2348,7 +2348,8 @@ function sinterDownloadDetailExcel(){
     });
   }else if(res.isDX07){
     const s = res.summary||{};
-    aoa.push(['燒結量測明細（DX07）']);
+    // 2026-11-01：ST001180 借用同一個明細版面(後端回isDX07)，標題依品名顯示，DX07 照舊
+    aoa.push(['燒結量測明細（' + (String(ctx.model||'').indexOf('ST001180') === 0 ? 'ST001180' : 'DX07') + '）']);
     aoa.push(['品名', s.product||'', '工單號', s.wo||'']);
     aoa.push(['出爐日', s.outDate||'', '進爐日', s.inDate||'', '爐溫', s.temp||'']);
     aoa.push(['檢驗員', s.inspector||'', '審查', s.reviewer||'']);
