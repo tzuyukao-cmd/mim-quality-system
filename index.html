@@ -1759,12 +1759,13 @@ async function iqcSubmit(){
   const form = iqcReadForm();
   if(!form.wo){ showToast('請輸入工單號 / Vui lòng nhập số lệnh'); return; }
 
-  let savedRec;
+  // 只送這一筆給後端(新增/修改單列),不再把整張表傳回去覆寫:
+  // 手機頁面停在舊資料時送出,會把別人期間新增的紀錄蓋掉(11/3 噴砂 10/30 紀錄因此遺失)
+  let savedRec, res;
   if(iqcState.editIndex!==null){
-    const rec = iqcState.rows[iqcState.editIndex];
-    Object.assign(rec, form);
-    if(!rec.verdict){ showToast('請選擇判定 OK 或 NG / Vui lòng chọn OK hoặc NG'); return; }
-    savedRec = rec;
+    savedRec = Object.assign({}, iqcState.rows[iqcState.editIndex], form);
+    if(!savedRec.verdict){ showToast('請選擇判定 OK 或 NG / Vui lòng chọn OK hoặc NG'); return; }
+    res = await iqcRowOp('updateRow', {index: iqcState.editIndex, before: iqcState.editBefore, after: savedRec});
   } else {
     if(!iqcState.verdict){ showToast('請選擇判定 OK 或 NG / Vui lòng chọn OK hoặc NG'); return; }
     savedRec = {
@@ -1773,17 +1774,33 @@ async function iqcSubmit(){
       app: iqcState.check.app, jig: iqcState.check.jig, adh: iqcState.check.adh, tap: iqcState.check.tap,
       verdict: iqcState.verdict,
     };
-    iqcState.rows.push(savedRec);
-    iqcState.check = {app:false, jig:false, adh:false, tap:false};
-    iqcState.verdict = '';
-    iqcState.draft = {wo:'',bake:'',vendor:'',partName:'',sample:'',inspector:'',approver:'',desc:'',remark:''};
+    res = await iqcRowOp('appendRow', {record: savedRec});
+    if(res){
+      iqcState.check = {app:false, jig:false, adh:false, tap:false};
+      iqcState.verdict = '';
+      iqcState.draft = {wo:'',bake:'',vendor:'',partName:'',sample:'',inspector:'',approver:'',desc:'',remark:''};
+    }
   }
-  await iqcSaveToCloud();
+  if(!res) return;
   if(savedRec.verdict==='NG'){
     iqcNotifyNG(savedRec);
   }
   iqcState.editIndex = null;
+  iqcState.editBefore = null;
+  await iqcInit(true);
   iqcRender();
+}
+
+async function iqcRowOp(action, payload){
+  showToast('儲存中… / Đang lưu…');
+  try{
+    const res = await iqcApiPost(action, payload);
+    if(res && res.ok){ showToast('✅ 已儲存至雲端 / Đã lưu lên Cloud'); return res; }
+    showToast('❌ 儲存失敗 / Lưu thất bại:'+((res&&res.error)||'未知錯誤'));
+  }catch(err){
+    showToast('❌ 連線雲端失敗 / Kết nối Cloud thất bại:'+err.message);
+  }
+  return null;
 }
 
 async function iqcNotifyNG(record){
@@ -1796,26 +1813,36 @@ async function iqcNotifyNG(record){
 }
 
 function iqcEdit(i){
+  if(iqcState.editBefore && iqcState.editIndex!==null) iqcState.rows[iqcState.editIndex] = iqcState.editBefore;
   iqcState.editIndex = i;
+  // 勾選/判定按鈕會直接改 rows[i],先留一份原始內容給後端比對是哪一列
+  iqcState.editBefore = Object.assign({}, iqcState.rows[i]);
   iqcRender();
   document.getElementById('iqcRoot').scrollIntoView({behavior:'smooth'});
 }
 function iqcCancelEdit(){
+  if(iqcState.editBefore && iqcState.editIndex!==null) iqcState.rows[iqcState.editIndex] = iqcState.editBefore;
   iqcState.editIndex = null;
+  iqcState.editBefore = null;
   iqcRender();
 }
 async function iqcDelete(i){
   if(!confirm('確定刪除工單「'+(iqcState.rows[i].wo||'')+'」這筆紀錄? / Xác nhận xóa hồ sơ này?')) return;
-  iqcState.rows.splice(i,1);
-  await iqcSaveToCloud();
+  const before = (iqcState.editIndex===i && iqcState.editBefore) ? iqcState.editBefore : iqcState.rows[i];
+  const res = await iqcRowOp('deleteRow', {index: i, before});
+  if(!res) return;
+  iqcState.editIndex = null;
+  iqcState.editBefore = null;
+  await iqcInit(true);
   iqcRender();
 }
 
+// 整表覆寫只留給「匯入全部資料」備份還原用;一般新增/修改/刪除走 iqcRowOp
 async function iqcSaveToCloud(){
   if(!iqcState.rows || iqcState.rows.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return; }
   showToast('儲存中… / Đang lưu…');
   try{
-    const res = await iqcApiPost('saveData', iqcState.rows);
+    const res = await iqcApiPost('saveData', {fullOverwrite: true, rows: iqcState.rows});
     if(res && res.ok){ showToast('✅ 已儲存至雲端('+res.count+' 筆) / Đã lưu lên Cloud'); }
     else{ showToast('❌ 儲存失敗 / Lưu thất bại:'+((res&&res.error)||'未知錯誤')); }
   }catch(err){
