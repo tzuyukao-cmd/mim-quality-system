@@ -3925,20 +3925,30 @@ async function blastSubmit(){
   const form = blastReadForm();
   if(!form.wo && !form.partName){ showToast('請至少輸入工單號碼或品名'); return; }
 
-  let savedRec;
-  if(blastState.editIndex!==null){
-    savedRec = blastState.rows[blastState.editIndex];
-    Object.assign(savedRec, form);
-  } else {
-    savedRec = form;
-    blastState.rows.push(savedRec);
-  }
-  await blastSaveToCloud();
-  if(savedRec.result==='NG'){
-    blastNotifyNG(savedRec);
+  // 只送這一筆給後端(新增/修改單列),不再把整張表傳回去覆寫:
+  // 手機頁面停在舊資料時送出,會把別人期間新增的紀錄蓋掉(11/3 查到 10/30 紀錄因此遺失)
+  const res = blastState.editIndex!==null
+    ? await blastRowOp('updateRow', {index: blastState.editIndex, before: blastState.rows[blastState.editIndex], after: form})
+    : await blastRowOp('appendRow', {record: form});
+  if(!res) return;
+  if(form.result==='NG'){
+    blastNotifyNG(form);
   }
   blastState.editIndex = null;
+  await blastInit(true);
   blastRender();
+}
+
+async function blastRowOp(action, payload){
+  showToast('儲存中…');
+  try{
+    const res = await blastApiPost(action, payload);
+    if(res && res.ok){ showToast('✅ 已儲存至雲端'); return res; }
+    showToast('❌ 儲存失敗:'+((res&&res.error)||'未知錯誤'));
+  }catch(err){
+    showToast('❌ 連線雲端失敗:'+err.message);
+  }
+  return null;
 }
 
 async function blastNotifyNG(record){
@@ -3961,16 +3971,18 @@ function blastCancelEdit(){
 }
 async function blastDelete(i){
   if(!confirm('確定刪除這筆噴砂清洗紀錄?')) return;
-  blastState.rows.splice(i,1);
-  await blastSaveToCloud();
+  const res = await blastRowOp('deleteRow', {index: i, before: blastState.rows[i]});
+  if(!res) return;
+  await blastInit(true);
   blastRender();
 }
 
+// 整表覆寫只留給「匯入全部資料」備份還原用;一般新增/修改/刪除走 blastRowOp
 async function blastSaveToCloud(){
   if(!blastState.rows || blastState.rows.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return; }
   showToast('儲存中…');
   try{
-    const res = await blastApiPost('saveData', blastState.rows);
+    const res = await blastApiPost('saveData', {fullOverwrite: true, rows: blastState.rows});
     if(res && res.ok){ showToast('✅ 已儲存至雲端('+res.count+' 筆)'); }
     else{ showToast('❌ 儲存失敗:'+((res&&res.error)||'未知錯誤')); }
   }catch(err){
