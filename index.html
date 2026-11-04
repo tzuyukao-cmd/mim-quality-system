@@ -2541,13 +2541,16 @@ async function sinterSubmit(){
   const form = sinterReadForm();
   if(!form.model){ showToast('請輸入模號'); return; }
 
+  let res;
   if(sinterState.editIndex!==null){
-    Object.assign(sinterState.rows[sinterState.editIndex], form);
+    const i = sinterState.editIndex;
+    res = await sinterRowOp('updateRow', {index:i, before:sinterState.rows[i], after:Object.assign({}, sinterState.rows[i], form)});
   } else {
-    sinterState.rows.push(form);
+    res = await sinterRowOp('appendRow', {record:form});
   }
-  await sinterSaveToCloud();
+  if(!res) return;
   sinterState.editIndex = null;
+  await sinterInit(true);
   sinterRender();
 }
 
@@ -2562,16 +2565,30 @@ function sinterCancelEdit(){
 }
 async function sinterDelete(i){
   if(!confirm('確定刪除這筆燒結紀錄?')) return;
-  sinterState.rows.splice(i,1);
-  await sinterSaveToCloud();
+  const res = await sinterRowOp('deleteRow', {index:i, before:sinterState.rows[i]});
+  if(!res) return;
+  await sinterInit(true);
   sinterRender();
+}
+
+// 單列新增/修改/刪除(2026-11-03 起不再整張表覆寫,避免舊頁面蓋掉別人的新紀錄)
+async function sinterRowOp(action, payload){
+  showToast('儲存中…');
+  try{
+    const res = await sinterApiPost(action, payload);
+    if(res && res.ok){ showToast('✅ 已儲存至雲端'); return res; }
+    showToast('❌ 儲存失敗:'+((res&&res.error)||'未知錯誤'));
+  }catch(err){
+    showToast('❌ 連線雲端失敗:'+err.message);
+  }
+  return null;
 }
 
 async function sinterSaveToCloud(){
   if(!sinterState.rows || sinterState.rows.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return null; }
   showToast('儲存中…');
   try{
-    const res = await sinterApiPost('saveData', sinterState.rows);
+    const res = await sinterApiPost('saveData', {fullOverwrite: true, rows: sinterState.rows});
     if(res && res.ok){
       showToast('✅ 已儲存至雲端('+res.count+' 筆)');
       if(res.newTickets && res.newTickets.length){
@@ -2625,7 +2642,7 @@ function sinterImportFile(evt){
         '備註':'remark','remark':'remark',
       };
 
-      let imported = 0;
+      const recs = [];
       json.forEach(row=>{
         const rec = {};
         Object.keys(row).forEach(k=>{
@@ -2638,17 +2655,16 @@ function sinterImportFile(evt){
             rec[mapped] = String(val).trim();
           }
         });
-        if(rec.model || rec.wo){
-          sinterState.rows.push(rec);
-          imported++;
-        }
+        if(rec.model || rec.wo) recs.push(rec);
       });
 
-      if(imported===0){ showToast('未能辨識任何資料,請確認欄位名稱(日期/爐號/溫度/工單號/模號/判定)'); return; }
+      if(recs.length===0){ showToast('未能辨識任何資料,請確認欄位名稱(日期/爐號/溫度/工單號/模號/判定)'); return; }
 
-      await sinterSaveToCloud();
+      const res = await sinterRowOp('appendRow', {records:recs});
+      if(!res) return;
+      await sinterInit(true);
       sinterRender();
-      showToast(`✅ 已匯入 ${imported} 筆並存到雲端`);
+      showToast(`✅ 已匯入 ${res.count} 筆並存到雲端`);
     }catch(err){
       showToast('❌ 匯入失敗:'+err.message);
     }
