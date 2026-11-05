@@ -4313,13 +4313,16 @@ async function reshapeSubmit(){
   const form = reshapeReadForm();
   if(!form.wo && !form.partName){ showToast('請至少輸入工單號或料號/品名'); return; }
 
+  let res;
   if(reshapeState.editIndex!==null){
-    Object.assign(reshapeState.rows[reshapeState.editIndex], form);
+    const i = reshapeState.editIndex;
+    res = await reshapeRowOp('updateRow', {index:i, before:reshapeState.rows[i], after:Object.assign({}, reshapeState.rows[i], form)});
   } else {
-    reshapeState.rows.push(form);
+    res = await reshapeRowOp('appendRow', {record:form});
   }
-  await reshapeSaveToCloud();
+  if(!res) return;
   reshapeState.editIndex = null;
+  await reshapeInit(true);
   reshapeRender();
 }
 
@@ -4334,16 +4337,30 @@ function reshapeCancelEdit(){
 }
 async function reshapeDelete(i){
   if(!confirm('確定刪除這筆自製整形紀錄?')) return;
-  reshapeState.rows.splice(i,1);
-  await reshapeSaveToCloud();
+  const res = await reshapeRowOp('deleteRow', {index:i, before:reshapeState.rows[i]});
+  if(!res) return;
+  await reshapeInit(true);
   reshapeRender();
+}
+
+// 單列新增/修改/刪除(2026-11-04 起不再整張表覆寫,避免舊頁面蓋掉別人的新紀錄)
+async function reshapeRowOp(action, payload){
+  showToast('儲存中…');
+  try{
+    const res = await reshapeApiPost(action, payload);
+    if(res && res.ok){ showToast('✅ 已儲存至雲端'); return res; }
+    showToast('❌ 儲存失敗:'+((res&&res.error)||'未知錯誤'));
+  }catch(err){
+    showToast('❌ 連線雲端失敗:'+err.message);
+  }
+  return null;
 }
 
 async function reshapeSaveToCloud(){
   if(!reshapeState.rows || reshapeState.rows.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return; }
   showToast('儲存中…');
   try{
-    const res = await reshapeApiPost('saveData', reshapeState.rows);
+    const res = await reshapeApiPost('saveData', {fullOverwrite: true, rows: reshapeState.rows});
     if(res && res.ok){ showToast('✅ 已儲存至雲端('+res.count+' 筆)'); }
     else{ showToast('❌ 儲存失敗:'+((res&&res.error)||'未知錯誤')); }
   }catch(err){
