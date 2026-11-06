@@ -2085,14 +2085,16 @@ async function heatSubmit(){
   const form = heatReadForm();
   if(!form.partNo && !form.wo){ showToast('請至少輸入料號或工單單號'); return; }
 
+  let res;
   if(heatState.editIndex!==null){
-    const rec = heatState.rows[heatState.editIndex];
-    Object.assign(rec, form);
+    const i = heatState.editIndex;
+    res = await heatRowOp('updateRow', {index:i, before:heatState.rows[i], after:Object.assign({}, heatState.rows[i], form)});
   } else {
-    heatState.rows.push({ date: heatTodayDisplay(), ...form });
+    res = await heatRowOp('appendRow', {record:{ date: heatTodayDisplay(), ...form }});
   }
-  await heatSaveToCloud();
+  if(!res) return;
   heatState.editIndex = null;
+  await heatInit(true);
   heatRender();
 }
 
@@ -2107,16 +2109,30 @@ function heatCancelEdit(){
 }
 async function heatDelete(i){
   if(!confirm('確定刪除這筆熱處理紀錄?')) return;
-  heatState.rows.splice(i,1);
-  await heatSaveToCloud();
+  const res = await heatRowOp('deleteRow', {index:i, before:heatState.rows[i]});
+  if(!res) return;
+  await heatInit(true);
   heatRender();
+}
+
+// 單列新增/修改/刪除(2026-11-05 起不再整張表覆寫,避免舊頁面蓋掉別人的新紀錄)
+async function heatRowOp(action, payload){
+  showToast('儲存中…');
+  try{
+    const res = await heatApiPost(action, payload);
+    if(res && res.ok){ showToast('✅ 已儲存至雲端'); return res; }
+    showToast('❌ 儲存失敗:'+((res&&res.error)||'未知錯誤'));
+  }catch(err){
+    showToast('❌ 連線雲端失敗:'+err.message);
+  }
+  return null;
 }
 
 async function heatSaveToCloud(){
   if(!heatState.rows || heatState.rows.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return; }
   showToast('儲存中…');
   try{
-    const res = await heatApiPost('saveData', heatState.rows);
+    const res = await heatApiPost('saveData', {fullOverwrite: true, rows: heatState.rows});
     if(res && res.ok){ showToast('✅ 已儲存至雲端('+res.count+' 筆)'); }
     else{ showToast('❌ 儲存失敗:'+((res&&res.error)||'未知錯誤')); }
   }catch(err){
