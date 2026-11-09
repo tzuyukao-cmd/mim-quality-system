@@ -3390,13 +3390,16 @@ async function injSubmit(){
   const form = injReadForm();
   if(!form.partName && !form.machine){ showToast('請至少輸入機台號或品名'); return; }
 
+  let res;
   if(injState.editIndex!==null){
-    Object.assign(injState.rows[injState.editIndex], form);
+    const i = injState.editIndex;
+    res = await injRowOp('updateRow', {index:i, before:injState.rows[i], after:Object.assign({}, injState.rows[i], form)});
   } else {
-    injState.rows.push(form);
+    res = await injRowOp('appendRow', {record:form});
   }
-  await injSaveToCloud();
+  if(!res) return;
   injState.editIndex = null;
+  await injInit(true);
   injRender();
 }
 
@@ -3411,9 +3414,23 @@ function injCancelEdit(){
 }
 async function injDelete(i){
   if(!confirm('確定刪除這筆射出成形紀錄?')) return;
-  injState.rows.splice(i,1);
-  await injSaveToCloud();
+  const res = await injRowOp('deleteRow', {index:i, before:injState.rows[i]});
+  if(!res) return;
+  await injInit(true);
   injRender();
+}
+
+// 單列新增/修改/刪除(2026-11-09 起不再整張表覆寫,避免舊頁面蓋掉別人的新紀錄)
+async function injRowOp(action, payload){
+  showToast('儲存中…');
+  try{
+    const res = await injApiPost(action, payload);
+    if(res && res.ok){ showToast('✅ 已儲存至雲端'); return res; }
+    showToast('❌ 儲存失敗:'+((res&&res.error)||'未知錯誤'));
+  }catch(err){
+    showToast('❌ 連線雲端失敗:'+err.message);
+  }
+  return null;
 }
 
 async function injViewNineOClockDetail(i){
@@ -3472,7 +3489,7 @@ async function injSaveToCloud(){
   if(!injState.rows || injState.rows.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return; }
   showToast('儲存中…');
   try{
-    const res = await injApiPost('saveData', injState.rows);
+    const res = await injApiPost('saveData', {fullOverwrite: true, rows: injState.rows});
     if(res && res.ok){ showToast('✅ 已儲存至雲端('+res.count+' 筆)'); }
     else{ showToast('❌ 儲存失敗:'+((res&&res.error)||'未知錯誤')); }
   }catch(err){
