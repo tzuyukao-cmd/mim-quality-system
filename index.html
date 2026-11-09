@@ -3683,6 +3683,7 @@ function fqcClearDateFilter(){
 
 // 一次性遷移:把舊資料「批號/工單」混合欄位拆成獨立的 lot 與 wo
 async function fqcMigrateLotWo(){
+  await fqcInit(true);
   const sepRe = /[\/\\、,，\s]+/; // 支援 / \ 、 , ， 空白 當分隔符
   let changed = 0;
   fqcState.rows.forEach(r=>{
@@ -3726,13 +3727,16 @@ async function fqcSubmit(){
   const form = fqcReadForm();
   if(!form.lot && !form.wo && !form.partNo){ showToast('請至少輸入批號、工單或產品/料號'); return; }
 
+  let res;
   if(fqcState.editIndex!==null){
-    Object.assign(fqcState.rows[fqcState.editIndex], form);
+    const i = fqcState.editIndex;
+    res = await fqcRowOp('updateRow', {index:i, before:fqcState.rows[i], after:Object.assign({}, fqcState.rows[i], form)});
   } else {
-    fqcState.rows.push(form);
+    res = await fqcRowOp('appendRow', {record:form});
   }
-  await fqcSaveToCloud();
+  if(!res) return;
   fqcState.editIndex = null;
+  await fqcInit(true);
   fqcRender();
 }
 
@@ -3747,16 +3751,30 @@ function fqcCancelEdit(){
 }
 async function fqcDelete(i){
   if(!confirm('確定刪除這筆出貨檢驗紀錄?')) return;
-  fqcState.rows.splice(i,1);
-  await fqcSaveToCloud();
+  const res = await fqcRowOp('deleteRow', {index:i, before:fqcState.rows[i]});
+  if(!res) return;
+  await fqcInit(true);
   fqcRender();
+}
+
+// 單列新增/修改/刪除(2026-11-09 起不再整張表覆寫,避免舊頁面蓋掉別人的新紀錄)
+async function fqcRowOp(action, payload){
+  showToast('儲存中…');
+  try{
+    const res = await fqcApiPost(action, payload);
+    if(res && res.ok){ showToast('✅ 已儲存至雲端'); return res; }
+    showToast('❌ 儲存失敗:'+((res&&res.error)||'未知錯誤'));
+  }catch(err){
+    showToast('❌ 連線雲端失敗:'+err.message);
+  }
+  return null;
 }
 
 async function fqcSaveToCloud(){
   if(!fqcState.rows || fqcState.rows.length===0){ showToast('⚠️ 資料為空，取消儲存以防止覆寫'); return; }
   showToast('儲存中…');
   try{
-    const res = await fqcApiPost('saveData', fqcState.rows);
+    const res = await fqcApiPost('saveData', {fullOverwrite: true, rows: fqcState.rows});
     if(res && res.ok){ showToast('✅ 已儲存至雲端('+res.count+' 筆)'); }
     else{ showToast('❌ 儲存失敗:'+((res&&res.error)||'未知錯誤')); }
   }catch(err){
